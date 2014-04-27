@@ -6,6 +6,9 @@
 
 # TODO
 # - what if fichier csv (codage en dur de l'extension pour le moment)
+# utiliser les données à partir de CLEANED plutot que RAW ?
+# Pro : pas de manip sur les données brutes
+# Cons : nécessite de traiter d'abord le fichier TE (et probablemente les autres) avant le CO2...
 
 ####### fonction definition #============================================================
 link_flux_patm <- function(date){

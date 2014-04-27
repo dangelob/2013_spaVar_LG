@@ -1,5 +1,20 @@
 source(paste(getwd(),"/src/load.R", sep=""))
 
+
+# idée interface
+
+# Non CO2 (ce qui est autre que le CO2)
+# FN_CandC (Clean and Concat) 
+
+# CO2
+# Sélect date
+# FN_CleanDate
+#     diagplt/regselec 
+
+# FN_CO2_Concat
+
+
+
 # Cleaning CO2 ------------------------------------------------------------
 detach("package:vaisCO2", unload=TRUE)
 library(vaisCO2)
@@ -155,36 +170,4 @@ write.csv(gHR, paste0(sav_cln,"gHR.csv"))
 write.csv(gPT, paste0(sav_cln,"gPT.csv"))
 write.csv(gVG_REC, paste0(sav_cln,"gVG_REC.csv"))
 write.csv(gVG_CPT, paste0(sav_cln,"gVG_CPT.csv"))
-
-###
-# Concat de l'ensemble des données
-
-###### PARTIE III : Création d'un fichier de sortie global ######
-#0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-#### OBJECTIF
-# Avoir un fichier contenant le maximum de données possible concernant le terrain
-# Ce fichier pourra ensuite être utilisé pour explorer les données "par date"
-# Ce fichier servira à la création d'un fichier regroupant les données des différentes dates
-#### PRE-REQUIS
-# Nécessite que les fichiers de terrain suivants soient au format csv 
-# (Et dans le bon répertoire)
-# AAAA-MM-JJ_TE ; AAAA-MM-JJ_HR ; AAAA-MM-JJ_VEG_CPT ; AAAA-MM-JJ_VEG_REC ; AAAA-MM-JJ_PT 
-
-# #Intégration dans le DF commun
-# df_cc <- trtVS_TE(date, dbg=FALSE)
-# 
-# ### P3 Intégration des Flux de CO2 utilisation de LG.CalcCO2 #===========================
-# df_cc <- join(df_cc, df_wide)
-# 
-# ### P3 Intégration des Profils de Température (AAAA-MM-JJ_TE) #==========================
-# 
-# dat_PT <- trtVS_PT(date,long=FALSE, dbg=FALSE)
-# #Intégration des profils de Température
-# df_cc <- join(df_cc, dat_PT)
-# 
-# ### P3 Intégration de l'Humidité Relative moyenne #======================================
-# # Calcul de la moyenne des HR
-# dat_HR_mean <- trtVS_HR(date, mean=TRUE, dbg=FALSE)
-# #Intégration des moyennes des humidités relative
-# df_cc <- join(df_cc, dat_HR_mean)
 
