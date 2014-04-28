@@ -29,7 +29,7 @@ rawTOcleaned <- function(){
   gVG_CPT <- data.frame()
   
   
-  for (i in seq_along(dateList$date)){
+  for (i in unique(dateList$terrNum)){
     ID_camp <- paste0(dateList$date[i], "_LG_VS/")
     pth_camp <- paste0(pth_raw, ID_camp)
     
@@ -45,7 +45,7 @@ rawTOcleaned <- function(){
     
     # Concat PT
     ID_PT <- paste0(pth_camp, dateList$date[i], "_LG_PT.csv")
-    PT <- cbind(read.csv(ID_PT), ID_camp = i)
+    PT <- cbind(cln_PT(read.csv(ID_PT)), ID_camp = i)
     gPT <- rbind(gPT, PT)
     
     # Concat VG_REC
