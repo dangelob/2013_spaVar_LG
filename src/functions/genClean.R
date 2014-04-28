@@ -31,7 +31,7 @@ rawTOcleaned <- function(){
   
   for (i in seq_along(dateList$date)){
     ID_camp <- paste0(dateList$date[i], "_LG_VS/")
-    pth_camp <- paste0(pathRawdat, ID_camp)
+    pth_camp <- paste0(pth_raw, ID_camp)
     
     # Concat TE
     ID_TE <- paste0(pth_camp, dateList$date[i], "_LG_TE.csv")
@@ -93,5 +93,6 @@ derawTOcleaned <- function(){
     CO2 <- read.csv(ID_CO2)
     gCO2 <- rbind(gCO2, CO2)
   }
-  write.csv(gCO2, paste0(sav_cln,"gCO2.csv"))
+  write.csv(gCO2, paste0(sav_cln,"gCO2.csv"), row.names = FALSE, 
+            quote = FALSE)
 }

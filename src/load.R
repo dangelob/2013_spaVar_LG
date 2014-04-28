@@ -17,6 +17,22 @@ library(devtools)
 library(rCharts)
 
 # Functions ---------------------------------------------------------------
+pth_fn <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/functions/"
+
+# meta --------------------------------------------------------------------
+source(paste(pth_fn,"metaData_fn.R", sep=""))
+
+# genFiles ----------------------------------------------------------------
+source(paste(pth_fn,"getNF.R", sep=""))
+source(paste(pth_fn,"link_flux_patm.R", sep=""))
+source(paste(pth_fn,"genDerawCO2.R", sep=""))
+source(paste(pth_fn,"genClean.R", sep=""))
+source(paste(pth_fn,"clean_fn.R", sep=""))
+
+# load functions ----------------------------------------------------------
+source(paste(pth_fn,"load_fn.R", sep=""))
+
+
 # 
 # source(paste(getwd(),"/src/3_functions/get_relative_path.R", sep=""))
 # 
