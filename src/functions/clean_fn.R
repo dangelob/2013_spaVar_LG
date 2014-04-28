@@ -30,8 +30,7 @@ cln_HR <- function(df){
 # PT ----------------------------------------------------------------------
 cln_PT <- function(df){
   # Traitement --------------------------------------------------------------
-  if("TairDeb" %in% colnames(df) & "TairFin" %in% colnames(df))
-  {
+  if ("TairDeb" %in% colnames(df) & "TairFin" %in% colnames(df)) {
     # Calcul de la moyenne de la Température de l'air
     df$Tair <- rowMeans(subset(df, select = c(TairDeb, TairFin)), na.rm = TRUE)
     # Suppression des colonnes TariDeb et TairFin
@@ -39,8 +38,8 @@ cln_PT <- function(df){
     df <- df[,!(names(df) %in% drops)]
     # Réorganisation des colonnes
     df <- df[,c("placette", "date", "Tair", "Tsurf",
-                "X.0.05", "X.0.1", "X.0.15", "X.0.2", "X.0.25", "X.0.3",
-                "X.0.4", "X.0.5", "X.0.6", "X.0.7", "X.0.8", "X.0.9", "X.1")]
+                "T5", "T10", "T15", "T20", "T25", "T30",
+                "T40", "T50", "T60", "T70", "T80", "T90", "T100")]
   }else{}
   return(df)
 } # Fin fonction

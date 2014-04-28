@@ -11,7 +11,7 @@
 # Cons : nécessite de traiter d'abord le fichier TE (et probablemente les autres) avant le CO2...
 
 ####### fonction definition #============================================================
-link_flux_patm <- function(date){
+link_flux_patm <- function(date=date){
   
   ### LIBRARY #============================================================================
   
