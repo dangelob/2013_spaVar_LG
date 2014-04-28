@@ -1,0 +1,73 @@
+Explt par placette
+========================================================
+
+### <a href="../TOC_VS.html"> Retour 1re page </a>
+
+***
+
+```{r loadenv, eval=TRUE, echo=FALSE, message=FALSE}
+
+loadenv <- function(){
+   source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/load.R")
+#   source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_JourNuit/src/3_functions/reportFn.R")
+  set_alias(w = "fig.width", h = "fig.height") 
+#   cat("loadenv : done \n")
+  }
+
+# Calls
+loadenv()
+dfCO2 <- ld_CO2()
+dfPT<- ld_PT(long=F)
+
+df <- join(dfCO2, dfPT)
+df$ID_camp <- as.factor(df$ID_camp)
+df$ReAbs <- abs(df$Re)
+
+```
+
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
+
+mdls <- function(df){
+  mdl1 <- lm(ReAbs ~ T5, data = df)
+  mdl2 <- lm(log(ReAbs) ~ T5, data = df)
+  
+  prd <- data.frame(T5 = seq(5, 30, by = 0.5))
+  result <- prd
+  result$mdl1 <- predict(mdl1, newdata = prd)
+#   result$mdl2 <- predict(mdl2, newdata = prd)
+  result$mdl2 <- exp((coef(mdl2)[2]*result$T5) + coef(mdl2)[1])
+  return(result)
+  }
+
+result <- ddply(df,.(placette),mdls)
+# result <-  melt(result, id.vars = c("placette","T5"), variable.name = "model",
+#                 value.name = "fitted")
+
+plt <- ggplot(df[which(!is.na(df$T5) & !is.na(df$ReAbs)),], aes(x=T5, y=ReAbs))+
+#   geom_smooth(method = "lm", se=F, color="red") +
+  geom_point(size=4, aes(color=ID_camp)) +
+  labs(title=("Évolution de la respiration de l'écosystème en fonction de la température de la tourbe"))+
+  geom_line(data=result, aes(x=T5, y=mdl1), color = "red")+
+  geom_line(data=result, aes(x=T5, y=mdl2), color = "blue")+
+  facet_wrap(~placette)+
+  ylim(0,20)+
+  theme_bw()
+#Ajout des coef R et  R2
+cors <- ddply(df[which(!is.na(df$T5) & !is.na(df$ReAbs)),], .(placette), summarise, 
+              cor = round(cor(T5, ReAbs), 2), 
+              mdl1_sqR = round(summary(lm(ReAbs~T5))$r.squared, 2),
+              mdl1_slp = round(summary(lm(ReAbs~T5))$coef[2], 2),
+              mdl2_sqR = round(summary(lm(log(ReAbs)~T5))$r.squared, 2),
+              mdl2_slp = round(summary(lm(log(ReAbs)~T5))$coef[2], 2))
+
+plt <- plt + 
+  geom_text(data=cors, aes(label=paste("R==", cor, sep="")), x=5, y=18, hjust=0, size=2.5, parse=T)+
+  geom_text(data=cors, aes(label=paste("R^2==", mdl1_sqR, "~~~pente==", mdl1_slp, sep="")), x=5, y=16, hjust=0, size=2.5, parse=T, color = "red")+
+  geom_text(data=cors, aes(label=paste("R^2==", mdl2_sqR, sep="")), x=5, y=14, hjust=0, size=2.5, parse=T, color = "blue")
+print(plt)
+plt_name <- sprintf("/[pts][all][%s_%s].png",plt$labels$x, plt$labels$y)
+ggsave(paste(output_pth,plt_name,sep=""), width=12, height=8)
+
+```
