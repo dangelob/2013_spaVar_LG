@@ -16,31 +16,56 @@ Relation Re T
 
 ![plot of chunk unnamed-chunk-2](figure/unnamed-chunk-2.png) 
 
+
+Résumé de l'ensemble des données de respiration
+
+
 ```
 ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 ##   0.076   1.400   2.700   3.600   5.000  18.900
 ```
+
+
+Résumé pente modèle linéaire T15
+
 
 ```
 ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 ##   0.330   0.498   0.610   0.629   0.702   1.230
 ```
 
+![plot of chunk unnamed-chunk-4](figure/unnamed-chunk-4.png) 
+
+
+Résumé pente modèle exponentiel T15
+
+
 ```
 ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 ##   0.110   0.160   0.185   0.194   0.220   0.300
 ```
 
+![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5.png) 
 
 
 
-![plot of chunk unnamed-chunk-3](figure/unnamed-chunk-3.png) 
+
+
+
+
+
+
+
+![plot of chunk unnamed-chunk-8](figure/unnamed-chunk-8.png) 
 
 
 Le modèle exponentiel semble être soit aussi bon que le modèle linéaire soit meilleur. Il n'est moins bon qu'en de très rare occasions (p02 jusque T10)
 
-![plot of chunk unnamed-chunk-4](figure/unnamed-chunk-4.png) 
+![plot of chunk unnamed-chunk-9](figure/unnamed-chunk-9.png) 
 
 
 
-## Évolution du niveau de la nappe
+## Évolution de la moyenne de la respiration en fonction du nombre de placette : 
+![plot of chunk unnamed-chunk-10](figure/unnamed-chunk-101.png) ![plot of chunk unnamed-chunk-10](figure/unnamed-chunk-102.png) 
+
+

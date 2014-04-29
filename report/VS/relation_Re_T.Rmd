@@ -131,13 +131,34 @@ plt <- plt +
 print(plt)
 plt_name <- sprintf("/[pts][all][%s_%s].png",plt$labels$x, plt$labels$y)
 ggsave(paste(output_pth,plt_name,sep=""), width=12, height=8)
+```
 
+Résumé de l'ensemble des données de respiration
 
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
 summary(df$ReAbs)
-summary(cors$mdl1_slp)
-summary(cors$mdl2_slp)
+```
 
+Résumé pente modèle linéaire T15
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+summary(cors$mdl1_slp)
+hist(cors$mdl1_slp)
+# boxplot(cors$mdl1_slp)
+```
+
+Résumé pente modèle exponentiel T15
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+summary(cors$mdl2_slp)
+hist(cors$mdl2_slp)
+```
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
 gQ10 <- round(exp(10*summary(lm(log(df$ReAbs)~df$T15))$coef[2]), 2)
+```
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
 gQ10 <- round(exp(10*summary(lm(log(df$ReAbs)~df$T_Chb_N.mean))$coef[2]), 2)
 ```
 
@@ -187,4 +208,47 @@ ggplot(mdR2, aes(x=Tlevel, y=value))+
 ```
 
 
-## Évolution du niveau de la nappe
+## Évolution de la moyenne de la respiration en fonction du nombre de placette : 
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=10, h=6, dpi=100}
+
+dat <- data.frame()
+for (i in 2:20){# une série de tirage de 2 à 20 placette
+  mn <- data.frame()
+  for(h in 1:100){ # nb de tirage par taille
+    sel <- as.vector(sample(unique(df$placette), i))
+    w <- data.frame()
+    for (j in sel){ # pour chaque item sélectionné on prend le sub7 qui correspond
+      w <- rbind(w, df[which(df$placette == j),])
+      }
+    mn <- rbind(mn, mean(w$ReAbs, na.rm=T))
+    }
+  if(i == 2){
+    dat <- mn
+    }else{
+      dat <- cbind(dat,mn)
+      }
+  }
+colnames(dat) <- 2:20
+
+resul <- ddply(melt(dat), .(variable), summarise, mean=mean(value, na.rm=T),
+               sd=sd(value, na.rm=T))
+
+resul$se <- resul$sd/sqrt(100*as.numeric(as.character(resul$variable)))
+resul$ci95 <- 95/2*resul$se
+
+ggplot(resul, aes(x=variable, y=mean, group=1))+
+#   geom_ribbon(aes(ymin=mean-se, ymax=mean+se), alpha = .2)+
+  geom_line(aes(y=mean-se), colour="grey50", linetype = "dotted")+
+  geom_line(aes(y=mean+se), colour="grey50", linetype = "dotted")+
+  geom_line()+
+  theme_bw()
+
+ggplot(resul, aes(x=variable, y=mean, group=1))+
+#   geom_ribbon(aes(ymin=mean-se, ymax=mean+se), alpha = .2)+
+  geom_line(aes(y=mean-ci95), colour="grey50", linetype = "dotted")+
+  geom_line(aes(y=mean+ci95), colour="grey50", linetype = "dotted")+
+  geom_line()+
+  ylim(3,4)+
+  theme_bw()
+```
+
