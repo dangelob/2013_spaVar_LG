@@ -18,8 +18,9 @@ loadenv <- function(){
 loadenv()
 dfCO2 <- ld_CO2()
 dfPT<- ld_PT(long=F)
+dfTE<- ld_TE()
 
-df <- join(dfCO2, dfPT)
+df <- join(join(dfCO2, dfPT), dfTE)
 df$ID_camp <- as.factor(df$ID_camp)
 df$ReAbs <- abs(df$Re)
 
@@ -29,19 +30,21 @@ df$ReAbs <- abs(df$Re)
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
 output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
 
-mdls <- function(df){
+mdlsT5 <- function(df){
   mdl1 <- lm(ReAbs ~ T5, data = df)
   mdl2 <- lm(log(ReAbs) ~ T5, data = df)
+  mdl3 <- lm(ReAbs ~ T5 + WT, data = df)
   
-  prd <- data.frame(T5 = seq(5, 30, by = 0.5))
+  prd <- data.frame(T5 = seq(5, 30, by = 0.5), WT = seq(5, 30, by = 0.5))
   result <- prd
   result$mdl1 <- predict(mdl1, newdata = prd)
 #   result$mdl2 <- predict(mdl2, newdata = prd)
   result$mdl2 <- exp((coef(mdl2)[2]*result$T5) + coef(mdl2)[1])
+  result$mdl3 <- predict(mdl3, newdata = prd)
   return(result)
   }
 
-result <- ddply(df,.(placette),mdls)
+result <- ddply(df,.(placette),mdlsT5)
 # result <-  melt(result, id.vars = c("placette","T5"), variable.name = "model",
 #                 value.name = "fitted")
 
@@ -51,6 +54,7 @@ plt <- ggplot(df[which(!is.na(df$T5) & !is.na(df$ReAbs)),], aes(x=T5, y=ReAbs))+
   labs(title=("Évolution de la respiration de l'écosystème en fonction de la température de la tourbe"))+
   geom_line(data=result, aes(x=T5, y=mdl1), color = "red")+
   geom_line(data=result, aes(x=T5, y=mdl2), color = "blue")+
+#   geom_line(data=result, aes(x=T5, y=mdl3), color = "orange")+
   facet_wrap(~placette)+
   ylim(0,20)+
   theme_bw()
@@ -60,7 +64,9 @@ cors <- ddply(df[which(!is.na(df$T5) & !is.na(df$ReAbs)),], .(placette), summari
               mdl1_sqR = round(summary(lm(ReAbs~T5))$r.squared, 2),
               mdl1_slp = round(summary(lm(ReAbs~T5))$coef[2], 2),
               mdl2_sqR = round(summary(lm(log(ReAbs)~T5))$r.squared, 2),
-              mdl2_slp = round(summary(lm(log(ReAbs)~T5))$coef[2], 2))
+              mdl2_slp = round(summary(lm(log(ReAbs)~T5))$coef[2], 2),
+              mdl3_sqR = round(summary(lm(ReAbs~T5+WT))$r.squared, 2),
+              mdl3_slp = round(summary(lm(ReAbs~T5+WT))$coef[2], 2))
 
 plt <- plt + 
   geom_text(data=cors, aes(label=paste("R==", cor, sep="")), x=5, y=18, hjust=0, size=2.5, parse=T)+
@@ -69,5 +75,110 @@ plt <- plt +
 print(plt)
 plt_name <- sprintf("/[pts][all][%s_%s].png",plt$labels$x, plt$labels$y)
 ggsave(paste(output_pth,plt_name,sep=""), width=12, height=8)
+
+```
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
+
+mdlsT15 <- function(df){
+  mdl1 <- lm(ReAbs ~ T15, data = df)
+  mdl2 <- lm(log(ReAbs) ~ T15, data = df)
+  mdl3 <- lm(ReAbs ~ T15 + WT, data = df)
+  
+  prd <- data.frame(T15 = seq(5, 30, by = 0.5), WT = seq(5, 30, by = 0.5))
+  result <- prd
+  result$mdl1 <- predict(mdl1, newdata = prd)
+#   result$mdl2 <- predict(mdl2, newdata = prd)
+  result$mdl2 <- exp((coef(mdl2)[2]*result$T15) + coef(mdl2)[1])
+  result$mdl3 <- predict(mdl3, newdata = prd)
+  return(result)
+  }
+
+result <- ddply(df,.(placette),mdlsT15)
+# result <-  melt(result, id.vars = c("placette","T15"), variable.name = "model",
+#                 value.name = "fitted")
+
+plt <- ggplot(df[which(!is.na(df$T15) & !is.na(df$ReAbs)),], aes(x=T15, y=ReAbs))+
+#   geom_smooth(method = "lm", se=F, color="red") +
+  geom_point(size=4, aes(color=ID_camp)) +
+  labs(title=("Évolution de la respiration de l'écosystème en fonction de la température de la tourbe"))+
+  geom_line(data=result, aes(x=T15, y=mdl1), color = "red")+
+  geom_line(data=result, aes(x=T15, y=mdl2), color = "blue")+
+#   geom_line(data=result, aes(x=T15, y=mdl3), color = "orange")+
+  facet_wrap(~placette)+
+  ylim(0,20)+
+  theme_bw()
+#Ajout des coef R et  R2
+cors <- ddply(df[which(!is.na(df$T15) & !is.na(df$ReAbs)),], .(placette), summarise, 
+              cor = round(cor(T15, ReAbs), 2), 
+              mdl1_sqR = round(summary(lm(ReAbs~T15))$r.squared, 2),
+              mdl1_slp = round(summary(lm(ReAbs~T15))$coef[2], 2),
+              mdl2_sqR = round(summary(lm(log(ReAbs)~T15))$r.squared, 2),
+              mdl2_slp = round(summary(lm(log(ReAbs)~T15))$coef[2], 2),
+              mdl2_Q10 = round(exp(10*summary(lm(log(ReAbs)~T15))$coef[2]), 2),
+              mdl3_sqR = round(summary(lm(ReAbs~T15+WT))$r.squared, 2),
+              mdl3_slp = round(summary(lm(ReAbs~T15+WT))$coef[2], 2))
+
+plt <- plt + 
+  geom_text(data=cors, aes(label=paste("R==", cor, sep="")), x=5, y=18, hjust=0, size=2.5, parse=T)+
+  geom_text(data=cors, aes(label=paste("R^2==", mdl1_sqR, "~~~pente==", mdl1_slp, sep="")), x=5, y=16, hjust=0, size=2.5, parse=T, color = "red")+
+  geom_text(data=cors, aes(label=paste("R^2==", mdl2_sqR, sep="")), x=5, y=14, hjust=0, size=2.5, parse=T, color = "blue")
+#   geom_text(data=cors, aes(label=paste("R^2==", mdl2_sqR, "~~~Q10==", mdl2_Q10, sep="")), x=5, y=14, hjust=0, size=2.5, parse=T, color = "blue")
+print(plt)
+plt_name <- sprintf("/[pts][all][%s_%s].png",plt$labels$x, plt$labels$y)
+ggsave(paste(output_pth,plt_name,sep=""), width=12, height=8)
+
+
+summary(df$ReAbs)
+summary(cors$mdl1_slp)
+summary(cors$mdl2_slp)
+
+gQ10 <- round(exp(10*summary(lm(log(df$ReAbs)~df$T15))$coef[2]), 2)
+gQ10 <- round(exp(10*summary(lm(log(df$ReAbs)~df$T_Chb_N.mean))$coef[2]), 2)
+```
+
+
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=16, h=12, dpi=100}
+dfR2 <- join(dfCO2[,c("placette","date","ID_camp", "Re", "T_Chb_N.mean")], dfPT)
+
+colnames(dfR2)[5] <- "Tchb"
+
+dfR2 <-  melt(dfR2, id.vars = c("placette","date","ID_camp", "Re"), variable.name = "Tlevel", value.name = "T")
+
+dfR2$ReAbs <- abs(dfR2$Re)
+
+dfR2 <- na.omit(dfR2)
+
+dR2 <- ddply(dfR2, .(placette, Tlevel), summarise, 
+              mdl1_sqR = round(summary(lm(ReAbs~T))$r.squared, 2),
+#               mdl1_slp = round(summary(lm(ReAbs~T))$coef[2], 2),
+              mdl2_sqR = round(summary(lm(log(ReAbs)~T))$r.squared, 2))#,
+#               mdl2_slp = round(summary(lm(log(ReAbs)~T))$coef[2], 2))
+
+mdR2 <-  melt(dR2, id.vars = c("placette","Tlevel"), variable.name = "model", value.name = "value")
+
+ggplot(mdR2, aes(x=Tlevel, y=value))+
+  geom_line(aes(color=model, group=model)) +
+  labs(title=("Évolution du R² des modèles linéaire (rouge) et exponentiel (bleu) \n liant la respiration de l'écosystème (Re) à la température (à différentes profondeur)"))+
+  facet_wrap(~placette)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1))
+```
+
+Le modèle exponentiel semble être soit aussi bon que le modèle linéaire soit meilleur. Il n'est moins bon qu'en de très rare occasions (p02 jusque T10)
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=10, h=6, dpi=100}
+# library(grid)
+ggplot(mdR2, aes(x=Tlevel, y=value))+
+  geom_point(size=4, aes(color=model)) +
+  labs(title=("Évolution du R² des modèles linéaire (rouge) et exponentiel (bleu) \n liant la respiration de l'écosystème (Re) à la température (à différentes profondeur)"))+
+#   annotate("segment", x=c(5,6), xend=(5,6), y=(0.4,0.4), yend=(0.6,0.6), color = "blue", size = 2, arrow=arrow())+
+  facet_wrap(~model)+
+  theme_bw()
+
+# plt_name <- sprintf("/[pts][all][%s_%s].png",plt$labels$x, plt$labels$y)
+# ggsave(paste(output_pth,plt_name,sep=""), width=12, height=8)
 
 ```
