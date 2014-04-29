@@ -82,3 +82,24 @@ ggplot(df, aes(x=date, y=NEP))+
   theme_bw()
 
 ```
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+
+summa <- function(x) {
+#   mReAbs = mean(x$ReAbs, na.rm = TRUE)
+  c(mWT = mean(x$WT, na.rm = TRUE),
+  seWT= (sd(x$WT, na.rm = TRUE)/sqrt(NROW(x))))
+}
+
+mdf <- ddply(df, .(date), summa) 
+
+# mdf <- join(df[,c("placette", "date")], mdf)
+
+ggplot(df, aes(x=date, y=WT))+
+  geom_line(data=mdf, aes(x=date, y=mWT, color = "red"), linetype = "dashed") +
+  geom_line() +
+  labs(title=("Évolution de la respiration de l'écosystème en fonction du temps"))+
+  facet_wrap(~placette)+
+  theme_bw()
+
+```
