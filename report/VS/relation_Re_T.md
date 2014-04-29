@@ -1,4 +1,4 @@
-Explt par placette
+Relation Re T
 ========================================================
 
 ### <a href="../TOC_VS.html"> Retour 1re page </a>
@@ -8,6 +8,8 @@ Explt par placette
 
 
 
+
+## Relation respiration (Re) et température (à différentes profondeur)
 
 ![plot of chunk unnamed-chunk-1](figure/unnamed-chunk-1.png) 
 
@@ -39,3 +41,6 @@ Le modèle exponentiel semble être soit aussi bon que le modèle linéaire soit
 
 ![plot of chunk unnamed-chunk-4](figure/unnamed-chunk-4.png) 
 
+
+
+## Évolution du niveau de la nappe

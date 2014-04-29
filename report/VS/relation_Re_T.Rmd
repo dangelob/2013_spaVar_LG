@@ -1,4 +1,4 @@
-Explt par placette
+Relation Re T
 ========================================================
 
 ### <a href="../TOC_VS.html"> Retour 1re page </a>
@@ -26,6 +26,8 @@ df$ReAbs <- abs(df$Re)
 
 ```
 
+
+## Relation respiration (Re) et température (à différentes profondeur)
 
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
 output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
@@ -182,3 +184,6 @@ ggplot(mdR2, aes(x=Tlevel, y=value))+
 # ggsave(paste(output_pth,plt_name,sep=""), width=12, height=8)
 
 ```
+
+
+## Évolution du niveau de la nappe
