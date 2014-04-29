@@ -67,6 +67,7 @@ cors <- ddply(df[which(!is.na(df$T5) & !is.na(df$ReAbs)),], .(placette), summari
               mdl1_slp = round(summary(lm(ReAbs~T5))$coef[2], 2),
               mdl2_sqR = round(summary(lm(log(ReAbs)~T5))$r.squared, 2),
               mdl2_slp = round(summary(lm(log(ReAbs)~T5))$coef[2], 2),
+              mdl2_Q10 = round(exp(10*summary(lm(log(ReAbs)~T15))$coef[2]), 2),
               mdl3_sqR = round(summary(lm(ReAbs~T5+WT))$r.squared, 2),
               mdl3_slp = round(summary(lm(ReAbs~T5+WT))$coef[2], 2))
 
