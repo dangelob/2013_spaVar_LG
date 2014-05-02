@@ -58,7 +58,7 @@ ggplot(mdf, aes(x=date, y=mReAbs, group=1))+
 #   geom_line(data=mdf, aes(x=date, y=(mReAbs-CI95), color = "red"), linetype="dashed") +
   geom_line(data=mdf, aes(x=date, y=(mReAbs+seReAbs), color = "red"), linetype="dashed") +
   geom_line(data=mdf, aes(x=date, y=(mReAbs-seReAbs), color = "red"), linetype="dashed") +
-  labs(title=("Évolution de la respiration de l'écosystème en fonction du temps \n  (moyenne des 20 placettes)"))+
+  labs(title="Évolution de la respiration de l'écosystème en fonction du temps \n  (moyenne des 20 placettes)", x="temps", y="Re (µmol.m⁻².s⁻²)")+
   theme_bw()+
   theme(legend.position="none")
 
