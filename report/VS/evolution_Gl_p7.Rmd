@@ -42,7 +42,22 @@ summa <- function(x) {
   seReAbs = (sd(x$ReAbs, na.rm = TRUE)/sqrt(NROW(x))))
 }
 
+lsdate <- get_dateList(type="all")
+colnames(lsdate) <- c("date", "ID_camp")
+df$date <- NULL
+df <- join(df, lsdate)
+
+
 mdf <- ddply(df, .(date), summa) 
+
+
+ggplot(mdf, aes(x=date, y=mReAbs, group=1))+
+  geom_line() +
+  geom_line(data=mdf, aes(x=date, y=(mReAbs+seReAbs), color = "red"), linetype="dashed") +
+  geom_line(data=mdf, aes(x=date, y=(mReAbs-seReAbs), color = "red"), linetype="dashed") +
+  labs(title=("Évolution de la respiration de l'écosystème en fonction du temps \n  (moyenne des 20 placettes)"))+
+  theme_bw()
+
 
 # mdf <- join(df[,c("placette", "date")], mdf)
 
