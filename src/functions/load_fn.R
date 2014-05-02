@@ -103,7 +103,7 @@ ld_VG_REC <- function(long=TRUE){
                     value.name="Recouvrement",
                     na.rm=FALSE)
     # Renommage des colonnes
-    colnames(df_long) <- c("placette", "date", "Veg", "REC")
+    colnames(df_long) <- c("placette", "date", "ID_camp","Veg", "REC")
     return(df_long)
   } else {
     return(df)
