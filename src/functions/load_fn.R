@@ -97,10 +97,12 @@ ld_PT <- function(long=TRUE){
 
 ld_VG_REC <- function(long=TRUE){
   df <- read.csv(paste0(pth_cleaned,"gVG_REC.csv"))
+  sav <- df$ID_camp
   df[df==""]<- 0
   df[df=="1"]<- 0
   df[df=="<1"]<- 0
   df[df=="<5"]<- 0
+  df$ID_camp <- sav
   
   for (i in c(3,4,5,7,8,9)){
     f <- df[,i]
@@ -124,6 +126,7 @@ ld_VG_REC <- function(long=TRUE){
 
 ld_VG_CPT <- function(mean=TRUE){
   df <- read.csv(paste0(pth_cleaned,"gVG_CPT.csv")) 
+  df[df==""] <- NA
   if (mean) { # Si on ne veut quel les moyennes
   # Moyenne par colonne
   df_mean <- data.frame(placette=df[,1], date=df[,2], Veg=df[,3],
