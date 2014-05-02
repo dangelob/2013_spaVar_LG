@@ -19,8 +19,13 @@ loadenv()
 dfCO2 <- ld_CO2()
 dfPT<- ld_PT(long=F)
 dfTE<- ld_TE()
+dfHR <- ld_HR()
+dfVGrec <- ld_VG_REC(long=FALSE)
+dfVGcpt <- ld_VG_CPT()
 
 df <- join(join(dfCO2, dfPT), dfTE)
+df <- join(df, dfVGrec)
+df <- join(df, dfHR)
 df$ID_camp <- as.factor(df$ID_camp)
 df$ReAbs <- abs(df$Re)
 
@@ -73,9 +78,7 @@ result <- ddply(df,.(placette),mdls)
 
 # result <-  melt(result, id.vars = c("placette","Tmprt"), variable.name = "model",
 #                 value.name = "fitted")
-
 cors <- getcors(df)
-
 
 txt_x <- 6
 txt_y <- floor(max(df$ReAbs, na.rm=T))
@@ -88,14 +91,15 @@ plt <- ggplot(df[which(!is.na(df$Tmprt) & !is.na(df$ReAbs)),], aes(x=Tmprt, y=Re
               x=xlab)+
   geom_line(data=result, aes(x=Tmprt, y=mdl1), color = "red")+
   geom_line(data=result, aes(x=Tmprt, y=mdl2), color = "blue")+
-#   geom_line(data=result, aes(x=Tmprt, y=mdl3), color = "orange")+
+  geom_line(data=result, aes(x=Tmprt, y=mdl3), color = "orange")+
   facet_wrap(~placette)+
   ylim(0,max(df$ReAbs, na.rm=TRUE))+
   xlim(5,max(df$Tmprt, na.rm=TRUE))+
   theme_bw()+ 
   geom_text(data=cors, aes(label=paste("R==", cor, sep="")), x=txt_x, y=txt_y, hjust=0, size=2.5, parse=T)+
   geom_text(data=cors, aes(label=paste("R^2==", mdl1_sqR, "~~~pente==", mdl1_slp, sep="")), x=txt_x, y=(txt_y-2), hjust=0, size=2.5, parse=T, color = "red")+
-  geom_text(data=cors, aes(label=paste("R^2==", mdl2_sqR, sep="")), x=txt_x, y=(txt_y-4), hjust=0, size=2.5, parse=T, color = "blue")
+  geom_text(data=cors, aes(label=paste("R^2==", mdl2_sqR, sep="")), x=txt_x, y=(txt_y-4), hjust=0, size=2.5, parse=T, color = "blue")+
+  geom_text(data=cors, aes(label=paste("R^2==", mdl3_sqR, sep="")), x=txt_x, y=(txt_y-6), hjust=0, size=2.5, parse=T, color = "orange")
 print(plt)
 plt_name <- sprintf("/[pts][all][%s_%s].png",plt$labels$x, plt$labels$y)
 ggsave(paste(output_pth,plt_name,sep=""), width=12, height=8)
@@ -143,6 +147,7 @@ plt_mdl_p7(dfT5, xlab="Température sol à 5 cm (°C)")
 dfT15 <- df[,c("placette","ReAbs","T15","WT","ID_camp")]
 colnames(dfT15)[3] <- "Tmprt"
 plt_mdl_p7(dfT15, xlab="Température sol à 15 cm (°C)")
+
 ```
 
 
@@ -238,9 +243,9 @@ for (i in 2:20){# une série de tirage de 2 à 20 placette
     for (j in sel){ # pour chaque item sélectionné on prend le sub7 qui correspond
       w <- rbind(w, df[which(df$placette == j),])
       }
-#     mn <- rbind(mn, mean(w$ReAbs, na.rm=T))
+    mn <- rbind(mn, mean(w$ReAbs, na.rm=T))
 # round(exp(10*summary(lm(log(ReAbs)~Tmprt))$coef[2]), 2),
-    mn <- rbind(mn, exp(10*summary(lm(log(w$ReAbs)~w$Tair))$coef[2]))
+#     mn <- rbind(mn, exp(10*summary(lm(log(w$ReAbs)~w$Tair))$coef[2]))
     }
   if(i == 2){
     dat <- mn
@@ -260,7 +265,8 @@ ggplot(resul, aes(x=variable, y=mean, group=1))+
 #   geom_ribbon(aes(ymin=mean-se, ymax=mean+se), alpha = .2)+
   geom_line(aes(y=mean-se), colour="grey50", linetype = "dotted")+
   geom_line(aes(y=mean+se), colour="grey50", linetype = "dotted")+
-  labs(x="nombre de placette", y="moyenne Q10")+
+#   labs(x="nombre de placette", y="moyenne Q10")+
+  labs(x="nombre de placette", y="moyenne de la Respiration")+
   geom_line()+
   theme_bw()
 
@@ -269,7 +275,9 @@ ggplot(resul, aes(x=variable, y=mean, group=1))+
   geom_line(aes(y=mean-ci95), colour="grey50", linetype = "dotted")+
   geom_line(aes(y=mean+ci95), colour="grey50", linetype = "dotted")+
   geom_line()+
-  ylim(3,4)+
+#   labs(x="nombre de placette", y="moyenne Q10")+
+  labs(x="nombre de placette", y="moyenne de la Respiration")+
+#   ylim(3,4)+
   theme_bw()
 ```
 
