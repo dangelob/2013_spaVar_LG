@@ -96,7 +96,16 @@ ld_PT <- function(long=TRUE){
 # VG_REC ------------------------------------------------------------------
 
 ld_VG_REC <- function(long=TRUE){
-  df <- read.csv(paste0(pth_cleaned,"gVG_REC.csv"))  
+  df <- read.csv(paste0(pth_cleaned,"gVG_REC.csv"))
+  df[df==""]<- 0
+  df[df=="1"]<- 0
+  df[df=="<1"]<- 0
+  df[df=="<5"]<- 0
+  
+  for (i in c(3,4,5,7,8,9)){
+    f <- df[,i]
+    df[,i] <- as.numeric(levels(f))[f]
+  }  
   # output ------------------------------------------------------------------
   if (long) {
     df_long <- melt(df, id=c("placette", "date", "ID_camp"),
