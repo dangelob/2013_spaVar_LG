@@ -50,13 +50,17 @@ df <- join(df, lsdate)
 
 mdf <- ddply(df, .(date), summa) 
 
+mdf$CI95 <- (95/2)*mdf$seReAbs
 
 ggplot(mdf, aes(x=date, y=mReAbs, group=1))+
   geom_line() +
+#   geom_line(data=mdf, aes(x=date, y=(mReAbs+CI95), color = "red"), linetype="dashed") +
+#   geom_line(data=mdf, aes(x=date, y=(mReAbs-CI95), color = "red"), linetype="dashed") +
   geom_line(data=mdf, aes(x=date, y=(mReAbs+seReAbs), color = "red"), linetype="dashed") +
   geom_line(data=mdf, aes(x=date, y=(mReAbs-seReAbs), color = "red"), linetype="dashed") +
   labs(title=("Évolution de la respiration de l'écosystème en fonction du temps \n  (moyenne des 20 placettes)"))+
-  theme_bw()
+  theme_bw()+
+  theme(legend.position="none")
 
 
 # mdf <- join(df[,c("placette", "date")], mdf)
