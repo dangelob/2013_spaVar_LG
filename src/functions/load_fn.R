@@ -76,7 +76,7 @@ ld_PT <- function(long=TRUE){
                   value.name="temperature",
                   na.rm=FALSE)
   # Renommage des colonnes
-  colnames(long_df) <- c("placette", "date", "profondeur", "temperature")
+  colnames(long_df) <- c("placette", "date", "ID_camp", "profondeur", "temperature")
   # On change les "factor levels" pour pouvoir ensuite les convertir
   levels(long_df$profondeur) <- c("10","0",
                                   "-5", "-10", "-15", "-20", "-25", "-30",
