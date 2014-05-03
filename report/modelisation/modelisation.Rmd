@@ -1,0 +1,126 @@
+Evolution par placette
+========================================================
+
+
+### <a href="../TOC_VS.html"> Retour 1re page </a>
+
+***
+
+```{r loadenv, eval=TRUE, echo=FALSE, message=FALSE}
+
+loadenv <- function(){
+   source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/load.R")
+#   source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_JourNuit/src/3_functions/reportFn.R")
+  set_alias(w = "fig.width", h = "fig.height") 
+  output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
+#   cat("loadenv : done \n")
+  }
+
+# Calls
+loadenv()
+dfCO2 <- ld_CO2()
+dfPT<- ld_PT(long=F)
+dfTE<- ld_TE()
+
+df <- join(join(dfCO2, dfPT), dfTE)
+df$ID_camp <- as.factor(df$ID_camp)
+df$ReAbs <- abs(df$Re)
+df$date <- as.Date(df$date)
+
+```
+
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+# Permet de récupérer un df avec de quoi tracer les courbes des modèles
+mReT <- function(df){
+  mdl1 <- lm(ReAbs ~ Tmprt, data = df)
+  mdl2 <- lm(log(ReAbs) ~ Tmprt, data = df)
+  mdl3 <- lm(ReAbs ~ Tmprt + WT, data = df)
+  
+  prd <- data.frame(Tmprt = seq(5, 40, by = 0.5), 
+                    WT = seq(5, 40, by = 0.5))
+  result <- prd
+  result$mdl1 <- predict(mdl1, newdata = prd)
+  result$mdl2 <- exp((coef(mdl2)[2]*result$Tmprt) + coef(mdl2)[1])
+  result$mdl3 <- predict(mdl3, newdata = prd)
+  return(result)
+  }
+
+# Permet de récupére un df avec données modélisées/mesurées
+pmReT <- function(df){
+  mdl1 <- lm(ReAbs ~ Tmprt, data = df)
+  mdl2 <- lm(log(ReAbs) ~ Tmprt, data = df)
+  mdl3 <- lm(ReAbs ~ Tmprt + WT, data = df)
+  
+  df$pmdl1 <- predict(mdl1)
+  df$rmdl1 <- residuals(mdl1)
+#   result$mdl2 <- predict(mdl2, newdata = prd)
+  df$pmdl2 <- exp((coef(mdl2)[2]*df$Tmprt) + coef(mdl2)[1])
+  df$pmdl3 <- predict(mdl3)
+  return(df)
+  }
+
+# dfTair <- df[,c("placette","ReAbs","Tair","WT","ID_camp")]
+
+getcors <- function(df){
+  cors <- ddply(df[which(!is.na(df$Tmprt) & !is.na(df$ReAbs)),], .(placette), summarise, 
+              cor = round(cor(Tmprt, ReAbs), 2), 
+              mdl1_sqR = round(summary(lm(ReAbs~Tmprt))$r.squared, 2),
+              mdl1_slp = round(summary(lm(ReAbs~Tmprt))$coef[2], 2),
+              mdl2_sqR = round(summary(lm(log(ReAbs)~Tmprt))$r.squared, 2),
+              mdl2_slp = round(summary(lm(log(ReAbs)~Tmprt))$coef[2], 2),
+              mdl2_Q10 = round(exp(10*summary(lm(log(ReAbs)~Tmprt))$coef[2]), 2),
+              mdl3_sqR = round(summary(lm(ReAbs~Tmprt+WT))$r.squared, 2),
+              mdl3_slp = round(summary(lm(ReAbs~Tmprt+WT))$coef[2], 2))
+  return(cors)
+}
+
+
+```
+
+
+## Re ~ Tair
+
+```{r Re_Tair_dat, fig.height=5.5, fig.width=5.5, tidy=TRUE, echo=FALSE}
+mdf <- df[,c("placette","ReAbs","Tair","WT","ID_camp", "date")]
+colnames(mdf)[3] <- "Tmprt"
+mdf <- mdf[which(!is.na(mdf$ReAbs) & !is.na(mdf$Tmprt)),]
+
+m_lines <- mReT(mdf)
+result <- pmReT(mdf)
+```
+
+```{r Re_Tair_graph, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+ggplot(result, aes(x=Tmprt, y=ReAbs))+
+#   ggtitle(lab_ReTps)+
+  geom_point()+
+  geom_line(data=m_lines, aes(x=Tmprt, y=mdl1), color = "red")+
+  geom_line(data=m_lines, aes(x=Tmprt, y=mdl2), color = "blue")+
+#   geom_line(data=result, aes(x=Tmprt, y=mdl3), color = "orange")+
+  theme_bw()
+
+ggplot(result, aes(x=date, y=ReAbs))+
+#   ggtitle(lab_ReTps)+
+  geom_point(size=5, alpha=0.2, color="red")+
+  geom_point(data = result, aes(x=date, y=pmdl1)
+             ,size=5, alpha=0.2, color="blue")+
+  theme_bw()
+
+
+lim <- max(result$ReAbs, na.rm = TRUE) + 1
+ratio <- with(result, diff(range(pmdl1))/diff(range(ReAbs)))
+ggplot(result, aes(x=pmdl1, y=ReAbs, color=ID_camp))+
+  geom_abline(intercept=0, color="blue" )+
+  geom_point(size=5, alpha=0.5)+
+  ylim(0,lim)+
+  xlim(0,lim)+
+  guides(color=FALSE)+
+#   ggtitle(lab_MesPred)+
+  coord_fixed(ratio = 1)+#, ylim=c(0,35), xlim=c(0,35))+
+#   coord_equal(ratio=ratio)#, xlim=c(0,35))+
+  theme_bw()
+#   theme(aspect.ratio=1)
+
+plot(result$rmdl1)
+abline(h=0, col="red")
+```

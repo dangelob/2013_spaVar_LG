@@ -5,6 +5,7 @@ data/cleaned
 data/deraw
 report/VS/figure
 report/map/figure
+report/modelisation/figure
 graphs
 *pdf
 *html
