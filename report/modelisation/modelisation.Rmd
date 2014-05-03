@@ -246,10 +246,10 @@ ggplot(result, aes(x=pmdl3, y=ReAbs))+
   coord_fixed(ratio = 1)+#, ylim=c(0,35), xlim=c(0,35))+
   theme_bw()
 
-plot(result$rmdl1, main="linéaire")
+plot(result$rmdl1~result$pmdl1, main="linéaire")
 abline(h=0, col="red")
-plot(result$rmdl2, main="exponential")
+plot(result$rmdl2~result$pmdl2, main="exponential")
 abline(h=0, col="red")
-plot(result$rmdl3, main="multiple lin (AUC + WT)")
+plot(result$rmdl3~result$pmdl3, ylab="Résiduals", xlab="Fitted")
 abline(h=0, col="red")
 ```
