@@ -14,6 +14,7 @@ loadenv <- function(){
   set_alias(w = "fig.width", h = "fig.height") 
   output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
 #   cat("loadenv : done \n")
+  library(zoo)
   }
 
 # Calls
@@ -31,7 +32,7 @@ df$date <- as.Date(df$date)
 
 
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
-# Permet de récupérer un df avec de quoi tracer les courbes des modèles
+# Permet de récupérer un df avec de quoi tracer les courbes des modèles
 mReT <- function(df){
   mdl1 <- lm(ReAbs ~ Tmprt, data = df)
   mdl2 <- lm(log(ReAbs) ~ Tmprt, data = df)
@@ -54,24 +55,30 @@ pmReT <- function(df){
   
   df$pmdl1 <- predict(mdl1)
   df$rmdl1 <- residuals(mdl1)
-#   result$mdl2 <- predict(mdl2, newdata = prd)
   df$pmdl2 <- exp((coef(mdl2)[2]*df$Tmprt) + coef(mdl2)[1])
+  df$rmdl2 <- residuals(mdl2)
   df$pmdl3 <- predict(mdl3)
+  df$rmdl3 <- residuals(mdl3)
   return(df)
   }
 
 # dfTair <- df[,c("placette","ReAbs","Tair","WT","ID_camp")]
 
 getcors <- function(df){
-  cors <- ddply(df[which(!is.na(df$Tmprt) & !is.na(df$ReAbs)),], .(placette), summarise, 
-              cor = round(cor(Tmprt, ReAbs), 2), 
-              mdl1_sqR = round(summary(lm(ReAbs~Tmprt))$r.squared, 2),
-              mdl1_slp = round(summary(lm(ReAbs~Tmprt))$coef[2], 2),
-              mdl2_sqR = round(summary(lm(log(ReAbs)~Tmprt))$r.squared, 2),
-              mdl2_slp = round(summary(lm(log(ReAbs)~Tmprt))$coef[2], 2),
-              mdl2_Q10 = round(exp(10*summary(lm(log(ReAbs)~Tmprt))$coef[2]), 2),
-              mdl3_sqR = round(summary(lm(ReAbs~Tmprt+WT))$r.squared, 2),
-              mdl3_slp = round(summary(lm(ReAbs~Tmprt+WT))$coef[2], 2))
+  mdl1 <- lm(ReAbs ~ Tmprt, data = df)
+  mdl2 <- lm(log(ReAbs) ~ Tmprt, data = df)
+  mdl3 <- lm(ReAbs ~ Tmprt + WT, data = df)
+  
+  cors <- data.frame(cor = round(cor(df$Tmprt, df$ReAbs), 2),
+                     mdl1_sqR = round(summary(mdl1)$r.squared, 2),
+                     mdl1_slp = round(summary(mdl1)$coef[2], 2),
+                     
+                     mdl2_sqR = round(summary(mdl2)$r.squared, 2),
+                     mdl2_slp = round(summary(mdl2)$coef[2], 2),
+                     mdl2_Q10 = round(exp(10*summary(mdl2)$coef[2]), 2),
+                     
+                     mdl3_sqR = round(summary(mdl3)$r.squared, 2),
+                     mdl3_slp = round(summary(mdl3)$coef[2], 2))
   return(cors)
 }
 
@@ -88,6 +95,8 @@ mdf <- mdf[which(!is.na(mdf$ReAbs) & !is.na(mdf$Tmprt)),]
 
 m_lines <- mReT(mdf)
 result <- pmReT(mdf)
+coef <- getcors(mdf)
+
 ```
 
 ```{r Re_Tair_graph, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
@@ -122,5 +131,125 @@ ggplot(result, aes(x=pmdl1, y=ReAbs, color=ID_camp))+
 #   theme(aspect.ratio=1)
 
 plot(result$rmdl1)
+abline(h=0, col="red")
+```
+
+
+
+
+
+
+```{r, tidy=TRUE, echo=FALSE, message=FALSE}
+# Récupération des profils de température format long pour toutes les dates
+tdf <- ld_PT(long=TRUE)
+tdf <- tdf[which(tdf$profondeur != 10 & tdf$profondeur >= -30),]
+tdf <- na.omit(tdf)
+tdf$profondeur <- abs(tdf$profondeur)
+
+# Nécessite package zoo (rollmean)
+AUC <- function(x){
+a <- x$profondeur
+b <- x$temperature
+idp <- order(x$profondeur)
+AUC <- sum(diff(a[idp])*rollmean(b[idp],2))
+return(AUC)
+}
+# Fonction pour calculer l'aire sous la courbe
+# http://stackoverflow.com/questions/4954507/calculate-the-area-under-a-curve-in-r
+AUCp <- function(x){
+a <- x$profondeur
+b <- x$temperature
+idp <- order(x$profondeur)
+# a[-6] ? Retire la 6e valeur ?  Le 2e terme doit correspondre a la profondeur entre 2 couche 
+AUCp <- sum((diff(a[idp])*rollmean(b[idp],2)) * (1/( a[-6] + (diff(a[idp]) / 2))))
+return(AUCp)
+}
+
+df_AUC <-  ddply(.data=tdf, .variables=c("placette", "date"), AUC)
+
+df_AUCp <-  ddply(.data=tdf, .variables=c("placette", "date"), AUCp)
+
+colnames(df_AUC) <- c("placette", "date", "AUC")
+colnames(df_AUCp) <- c("placette", "date", "AUCp")
+
+ptdf <- join(df_AUC, df_AUCp)
+ptdf$date <- as.Date(ptdf$date)
+
+ptdf <- join(mdf, ptdf)
+```
+
+
+
+## Re = Re~AUC+WT
+
+
+```{r Re_Tair_dat, fig.height=5.5, fig.width=5.5, tidy=TRUE, echo=FALSE}
+mdf <- ptdf[,c("placette","ReAbs","AUC","WT","ID_camp", "date")]
+colnames(mdf)[3] <- "Tmprt"
+mdf <- mdf[which(!is.na(mdf$ReAbs) & !is.na(mdf$Tmprt)),]
+
+m_lines <- mReT(mdf)
+result <- pmReT(mdf)
+coef <- getcors(mdf)
+
+```
+
+```{r Re_Tair_graph, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+ggplot(result, aes(x=Tmprt, y=ReAbs))+
+#   ggtitle(lab_ReTps)+
+  geom_point()+
+  geom_line(data=m_lines, aes(x=Tmprt, y=mdl1), color = "red")+
+  geom_line(data=m_lines, aes(x=Tmprt, y=mdl2), color = "blue")+
+#   geom_line(data=result, aes(x=Tmprt, y=mdl3), color = "orange")+
+  theme_bw()
+
+ggplot(result, aes(x=date, y=ReAbs))+
+  geom_point(size=5, alpha=0.2, color="red")+
+  geom_point(data = result, aes(x=date, y=pmdl3)
+             ,size=5, alpha=0.2, color="blue")+
+  theme_bw()
+
+
+lim <- max(result$ReAbs, na.rm = TRUE) + 1
+ratio <- with(result, diff(range(pmdl1))/diff(range(ReAbs)))
+ggplot(result, aes(x=pmdl1, y=ReAbs, color=ID_camp))+
+  geom_abline(intercept=0, color="blue" )+
+  geom_point(size=5, alpha=0.5)+
+  ylim(0,lim)+
+  xlim(0,lim)+
+  guides(color=FALSE)+
+  coord_fixed(ratio = 1)+#, ylim=c(0,35), xlim=c(0,35))+
+  theme_bw()
+
+
+lim <- max(result$ReAbs, na.rm = TRUE) + 1
+ratio <- with(result, diff(range(pmdl2))/diff(range(ReAbs)))
+ggplot(result, aes(x=log(pmdl2), y=log(ReAbs), color=ID_camp))+
+  geom_abline(intercept=0, color="blue" )+
+  geom_point(size=5, alpha=0.5)+
+  ylim(0,lim)+
+  xlim(0,lim)+
+  guides(color=FALSE)+
+  coord_fixed(ratio = 1)+#, ylim=c(0,35), xlim=c(0,35))+
+  theme_bw()
+
+lim <- max(result$ReAbs, na.rm = TRUE) + 1
+ratio <- with(result, diff(range(pmdl3))/diff(range(ReAbs)))
+ggplot(result, aes(x=pmdl3, y=ReAbs))+
+  geom_abline(intercept=0, color="black", linetype="dashed" )+
+  geom_point(size=4.5,shape=21)+
+  ylim(0,lim)+
+  xlim(0,lim)+
+  labs(y = "Respiration mesurée (µmol.m⁻².s⁻¹)", x = "Respiration modélisée (µmol.m⁻².s⁻¹)")+
+  annotate("text",x=1, y=19, label=paste0("R² = ",coef$mdl3_sqR))+
+  guides(color=FALSE)+
+  coord_fixed(ratio = 1)+#, ylim=c(0,35), xlim=c(0,35))+
+  theme_bw()
+
+plot(result$rmdl1, main="linéaire")
+abline(h=0, col="red")
+plot(result$rmdl2, main="exponential")
+abline(h=0, col="red")
+plot(result$rmdl3, main="multiple lin (AUC + WT)")
 abline(h=0, col="red")
 ```
