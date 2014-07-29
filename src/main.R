@@ -1,9 +1,13 @@
-source(paste(getwd(),"/src/load.R", sep=""))
+wd <- getwd()
+source(paste(wd,"/src/load.R", sep=""))
 
 
-pth_raw <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/raw/CO2/"
-pth_deraw <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/deraw/CO2/"
-pth_regsel <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/diagnostic/CO2_cleaning"
+pth_raw <- paste0(wd, "/data/raw/CO2/")
+pth_deraw <- paste0(wd, "/data/deraw/CO2/")
+pth_regsel <- paste0(wd, "/data/diagnostic/CO2_cleaning")
+# pth_raw <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/raw/CO2/"
+# pth_deraw <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/deraw/CO2/"
+# pth_regsel <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/diagnostic/CO2_cleaning"
 
 dateList <- get_dateList(type="all")
 # Non CO2 data ------------------------------------------------------------
