@@ -1,0 +1,104 @@
+WIP
+========================================================
+
+### <a href="../wip.html"> Retour 1re page </a>
+
+***
+
+```{r loadenv, eval=TRUE, echo=FALSE, message=FALSE}
+
+loadenv <- function(){
+   source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/load.R")
+#   source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_JourNuit/src/3_functions/reportFn.R")
+  set_alias(w = "fig.width", h = "fig.height") 
+#   cat("loadenv : done \n")
+  }
+
+# Calls
+loadenv()
+dfCO2 <- ld_CO2()
+dfPT<- ld_PT(long=F)
+dfTE<- ld_TE()
+dfHR <- ld_HR()
+dfVGrec <- ld_VG_REC(long=FALSE)
+dfVGcpt <- ld_VG_CPT()
+
+df <- join(join(dfCO2, dfPT), dfTE)
+df <- join(df, dfVGrec)
+df <- join(df, dfHR)
+df$ID_camp <- as.factor(df$ID_camp)
+# df$GPP <- abs(df$Re)
+
+df$date <- as.Date(df$date)
+
+
+```
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+dfPTl<- ld_PT(long=TRUE)
+dfPTl<- dfPTl[which(dfPTl$profondeur <= 0),]
+dfPTl$profondeur <- as.factor(dfPTl$profondeur)
+
+# ggplot(df, aes(x=date, y=T30, group=1))+
+#   geom_point() +
+#   geom_point(aes(x=date, y=T50), color="red")+
+#   labs(x="temps", y="Température à 30 cm (°C)")+
+#   theme_bw(base_size=28)+
+#   facet_wrap(~placette)+
+#   theme(legend.position="none")
+
+dfPTl$date <- as.Date(dfPTl$date)
+
+ggplot(dfPTl, aes(x=date, y=temperature, group=profondeur, color=profondeur))+
+  geom_path()+
+  labs(x="temps", y="Température (°C)")+
+  theme_bw(base_size=28)+
+  facet_wrap(~placette)+
+  theme(axis.text.x = element_text(angle=30, hjust=1, size=16))
+#   theme(legend.position="none")
+
+mdfPTl <- ddply(dfPTl, .(ID_camp, profondeur), summarise, temperature = mean(temperature, na.rm=T), date = min(date))
+
+ggplot(mdfPTl, aes(x=date, y=temperature, group=profondeur, color=profondeur))+
+  geom_line()+
+  geom_point()+
+#   geom_path()+
+  labs(x="temps", y="Température (°C)")+
+  theme_bw(base_size=28)+
+  theme(axis.text.x = element_text(angle=30, hjust=1, size=16))
+```
+
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+met <- ld_met()
+
+met$AirTC <- as.numeric(as.character(met$AirTC))
+met$RH_. <- as.numeric(as.character(met$RH_.))
+
+met$year <- NA
+
+met[which(met$TIMESTAMP >= as.POSIXct("2010-01-01 00:00:00") & met$TIMESTAMP <= as.POSIXct("2011-01-01 00:00:00")),]$year <- 2010
+met[which(met$TIMESTAMP >= as.POSIXct("2011-01-01 00:00:00") & met$TIMESTAMP <= as.POSIXct("2012-01-01 00:00:00")),]$year <- 2011
+met[which(met$TIMESTAMP >= as.POSIXct("2012-01-01 00:00:00") & met$TIMESTAMP <= as.POSIXct("2013-01-01 00:00:00")),]$year <- 2012
+met[which(met$TIMESTAMP >= as.POSIXct("2013-01-01 00:00:00") & met$TIMESTAMP <= as.POSIXct("2014-01-01 00:00:00")),]$year <- 2013
+met[which(met$TIMESTAMP >= as.POSIXct("2014-01-01 00:00:00") & met$TIMESTAMP <= as.POSIXct("2015-01-01 00:00:00")),]$year <- 2014
+
+ymet <- ddply(met, .(year), summarise, pluvio=round(sum(Rain_mm_Tot, na.rm=T),0), Tair=mean(AirTC, na.rm=T), rad=mean(SlrMJ.m.2, na.rm=T), RH=mean(RH_., na.rm=T))
+
+ymet <- ymet[2:4,]
+
+par(xpd=NA)
+plot(met$Rain_mm_Tot~met$TIMESTAMP, type="l", xlab="temps", ylab="pluviométrie (mm)")
+segments(as.POSIXct("2011-01-01 00:00:00"), 20, as.POSIXct("2012-01-01 00:00:00"), 20, col="black")
+segments(as.POSIXct("2012-01-01 00:00:00"), 22, as.POSIXct("2013-01-01 00:00:00"), 22, col="black")
+segments(as.POSIXct("2013-01-01 00:00:00"), 20, as.POSIXct("2014-01-01 00:00:00"), 20, col="black")
+text(as.POSIXct("2011-07-01 00:00:00"), 20, ymet$pluvio[1], pos = 3 , col="black")
+text(as.POSIXct("2012-07-01 00:00:00"), 22, ymet$pluvio[2], pos = 1, col="black")
+text(as.POSIXct("2013-07-01 00:00:00"), 20, ymet$pluvio[3], pos = 3, col="black")
+
+plot(ymet$pluvio~ymet$Tair, type="p")
+abline(lm(ymet$pluvio~ymet$Tair))
+summary(lm(ymet$pluvio~ymet$Tair))
+
+
+```

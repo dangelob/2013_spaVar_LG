@@ -12,7 +12,7 @@ loadenv <- function(){
    source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/load.R")
 #   source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_JourNuit/src/3_functions/reportFn.R")
   set_alias(w = "fig.width", h = "fig.height") 
-  output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
+  output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2014_CrossModelisation/graphs"
 #   cat("loadenv : done \n")
   library(zoo)
   }
@@ -135,7 +135,53 @@ abline(h=0, col="red")
 ```
 
 
+## Re ~ T15
 
+```{r Re_T15_dat, fig.height=5.5, fig.width=5.5, tidy=TRUE, echo=FALSE}
+mdf <- df[,c("placette","ReAbs","T15","WT","ID_camp", "date")]
+colnames(mdf)[3] <- "Tmprt"
+mdf <- mdf[which(!is.na(mdf$ReAbs) & !is.na(mdf$Tmprt)),]
+
+m_lines <- mReT(mdf)
+result <- pmReT(mdf)
+coef <- getcors(mdf)
+
+```
+
+```{r Re_T15_graph, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+ggplot(result, aes(x=Tmprt, y=ReAbs))+
+#   ggtitle(lab_ReTps)+
+  geom_point()+
+  geom_line(data=m_lines, aes(x=Tmprt, y=mdl1), color = "red")+
+  geom_line(data=m_lines, aes(x=Tmprt, y=mdl2), color = "blue")+
+#   geom_line(data=result, aes(x=Tmprt, y=mdl3), color = "orange")+
+  theme_bw()
+
+ggplot(result, aes(x=date, y=ReAbs))+
+#   ggtitle(lab_ReTps)+
+  geom_point(size=5, alpha=0.2, color="red")+
+  geom_point(data = result, aes(x=date, y=pmdl1)
+             ,size=5, alpha=0.2, color="blue")+
+  theme_bw()
+
+
+lim <- max(result$ReAbs, na.rm = TRUE) + 1
+ratio <- with(result, diff(range(pmdl1))/diff(range(ReAbs)))
+ggplot(result, aes(x=pmdl1, y=ReAbs, color=ID_camp))+
+  geom_abline(intercept=0, color="blue" )+
+  geom_point(size=5, alpha=0.5)+
+  ylim(0,lim)+
+  xlim(0,lim)+
+  guides(color=FALSE)+
+#   ggtitle(lab_MesPred)+
+  coord_fixed(ratio = 1)+#, ylim=c(0,35), xlim=c(0,35))+
+#   coord_equal(ratio=ratio)#, xlim=c(0,35))+
+  theme_bw()
+#   theme(aspect.ratio=1)
+
+plot(result$rmdl1)
+abline(h=0, col="red")
+```
 
 
 
@@ -241,10 +287,10 @@ ggplot(result, aes(x=pmdl3, y=ReAbs))+
   ylim(0,lim)+
   xlim(0,lim)+
   labs(y = "Respiration mesurée (µmol.m⁻².s⁻¹)", x = "Respiration modélisée (µmol.m⁻².s⁻¹)")+
-  annotate("text",x=1, y=19, label=paste0("R² = ",coef$mdl3_sqR))+
+  annotate("text",x=1.5, y=19, label=paste0("R² = ",coef$mdl3_sqR))+
   guides(color=FALSE)+
   coord_fixed(ratio = 1)+#, ylim=c(0,35), xlim=c(0,35))+
-  theme_bw()
+  theme_bw(base_size = 20)
 
 plot(result$rmdl1~result$pmdl1, main="linéaire")
 abline(h=0, col="red")

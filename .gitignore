@@ -6,6 +6,10 @@ data/deraw
 report/VS/figure
 report/map/figure
 report/modelisation/figure
+report/wip/figure
 graphs
 *pdf
 *html
+data/TRASH
+src/functions/TRASH
+report/VS/TRASH
