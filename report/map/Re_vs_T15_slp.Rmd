@@ -1,7 +1,6 @@
 Title
 ========================================================
 
-
 ```{r}
 loadenv <- function(){
    source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/load.R")
@@ -35,25 +34,24 @@ colnames(cors)[1] <- "PLACETTE"
 You can also embed plots, for example:
 
 ```{r fig.width=7, fig.height=6}
+Fct.file <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/commons/"
+source(paste(Fct.file,"R_FCT_ContourBase.R", sep=""))
+source(paste(Fct.file,"R_FCT_CoordEmbaseLG_VS.R", sep=""))
 
-  Fct.file <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/commons/"
-  source(paste(Fct.file,"R_FCT_ContourBase.R", sep=""))
-  source(paste(Fct.file,"R_FCT_CoordEmbaseLG_VS.R", sep=""))
+contourLG <- R_FCT_ContourBase()
+dfGPS <- R_FCT_CoordEmbaseLG_VS()
 
-  contourLG <- R_FCT_ContourBase()
-  dfGPS <- R_FCT_CoordEmbaseLG_VS()
-  
-  
-  trtdata <- cbind(R_FCT_CoordEmbaseLG_VS(), cors)
-  
-  
-  map <- contourLG+ 
+
+trtdata <- cbind(R_FCT_CoordEmbaseLG_VS(), cors)
+
+
+map <- contourLG+ 
   ggtitle("pente Re vs T15")+
   geom_point(data=trtdata, aes(x=LON, y=LAT, size=(trtdata$mdl1_slp * 10)), 
              shape=20,
              alpha=0.5,
              color="tomato"
-  )+
+             )+
   geom_text(data=trtdata, aes(label=PLACETTE, x=LON, y=LAT), vjust=1.5, color="black", size=4)+
   scale_size_identity(guide="legend")+
   labs(size="pente x10")+
