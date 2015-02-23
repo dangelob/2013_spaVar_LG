@@ -1,0 +1,60 @@
+---
+title: "NEE"
+author: "Benoît D'ANGELO"
+date: "23/02/2015"
+output: html_document
+---
+
+```{r, echo=FALSE}
+library(laguettevarspa)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+
+```{r, echo=FALSE}
+df <- svNetFlux %>%
+  filter(type == "NEE")%>%
+  separate(date, c("year","month", "day"),remove = F)
+
+ymNEE <- df %>%
+  group_by(year) %>%
+  summarise(NEE = mean(netCO2F, na.rm=T), NEE_sd = sd(netCO2F, na.rm=T))
+
+mmNEE <- df %>%
+  group_by(month) %>%
+  summarise(NEE = mean(netCO2F, na.rm=T), NEE_sd = sd(netCO2F, na.rm=T))
+
+mymNEE <- df %>%
+  group_by(year, month) %>%
+  summarise(NEE = mean(netCO2F, na.rm=T), NEE_sd = sd(netCO2F, na.rm=T))
+
+```
+
+```{r, echo=FALSE}
+ggplot(df, aes(x=date, y=netCO2F, color = placette))+
+  geom_point()+
+#   facet_grid(.~year, scales = "free")+
+  theme_bw()
+```
+
+```{r, echo=FALSE}
+ggplot(ymNEE, aes(x=year, y=NEE))+
+  geom_point()+
+  geom_line(aes(x=year, y=NEE+NEE_sd, group=1))+
+  geom_line(aes(x=year, y=NEE-NEE_sd, group=1))+
+  theme_bw()
+
+ggplot(mmNEE, aes(x=month, y=NEE))+
+  geom_point()+
+  geom_line(aes(x=month, y=NEE+NEE_sd, group=1))+
+  geom_line(aes(x=month, y=NEE-NEE_sd, group=1))+
+  theme_bw()
+
+ggplot(mymNEE, aes(x=month, y=NEE, color=year))+
+  geom_point()+
+  geom_line(aes(x=month, y=NEE+NEE_sd, group=year))+
+  geom_line(aes(x=month, y=NEE-NEE_sd, group=year))+
+  theme_bw()
+```
