@@ -29,7 +29,7 @@ library(knitr)
 # Path to the project
 proj_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG"
 # Path to graph output
-output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
+output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/relation_flux_T"
 
 # Allow plot a larger document
 options(width = 400)
