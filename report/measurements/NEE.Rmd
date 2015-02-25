@@ -5,7 +5,7 @@ date: "23/02/2015"
 output: html_document
 ---
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 library(laguettevarspa)
 library(dplyr)
 library(tidyr)
@@ -16,11 +16,16 @@ library(ggplot2)
 ```{r, echo=FALSE}
 df <- svNetFlux %>%
   filter(type == "NEE")%>%
-  separate(date, c("year","month", "day"),remove = F)
+  separate(date, c("year","month", "day"),remove = F) %>%
+  separate(timestamp, c("ts_date", "time"), sep=" ") %>%
+  mutate(time = substr(time, 1, 5))
 
 ymNEE <- df %>%
   group_by(year) %>%
   summarise(NEE = mean(netCO2F, na.rm=T), NEE_sd = sd(netCO2F, na.rm=T))
+A <- filter(df, year==2013)
+B <- filter(df, year==2014)
+t.test(A$netCO2F, B$netCO2F)
 
 mmNEE <- df %>%
   group_by(month) %>%
@@ -33,10 +38,26 @@ mymNEE <- df %>%
 ```
 
 ```{r, echo=FALSE}
+nobs <- paste("N :", as.character(NROW(df)))
+
+df$colR2 <- ifelse(df$R2 >= 0.8, "good", "bad")
+
 ggplot(df, aes(x=date, y=netCO2F, color = placette))+
   geom_point()+
+  annotate("text", x=as.Date("2013-06-01"), y=15, label=nobs, size=3.5)+
 #   facet_grid(.~year, scales = "free")+
   theme_bw()
+
+ggplot(df, aes(x=date, y=netCO2F))+
+  geom_line(aes(group = year))+
+  geom_point(aes(color=colR2))+
+  scale_colour_manual(values=c("red","black"))+
+  geom_text(data=df, aes(x=date, y=netCO2F+4, label=time), size=2.5, angle=90)+
+#   annotate("text", x=df$date, y=df$netCO2F+1, label=df$time, size=3.5)+
+  facet_wrap(~placette)+
+  theme_bw()+
+  theme(legend.position="none")
+
 ```
 
 ```{r, echo=FALSE}
@@ -56,5 +77,11 @@ ggplot(mymNEE, aes(x=month, y=NEE, color=year))+
   geom_point()+
   geom_line(aes(x=month, y=NEE+NEE_sd, group=year))+
   geom_line(aes(x=month, y=NEE-NEE_sd, group=year))+
+  theme_bw()
+
+ggplot(mymNEE, aes(x=month, y=NEE_sd, color=year))+
+  geom_point()+
+#   geom_line(aes(x=month, y=ER+ER_sd, group=year))+
+#   geom_line(aes(x=month, y=ER-ER_sd, group=year))+
   theme_bw()
 ```
