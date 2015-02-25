@@ -1,0 +1,119 @@
+Evolution par placette
+========================================================
+
+
+### <a href="../TOC_VS.html"> Retour 1re page </a>
+
+***
+
+```{r load_env, eval=TRUE, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+library(laguettevarspa)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/functions/ld_fn_model.R")
+
+output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
+```
+
+```{r load_data, eval=TRUE, echo=FALSE, message=FALSE}
+dRe <- svNetFlux %>%
+  filter(type == "Re") %>%
+  select(placette, date, netCO2F) %>%
+  rename("Re" = netCO2F)
+
+dNEE <- svNetFlux %>%
+  filter(type == "NEP") %>%
+  select(placette, date, netCO2F) %>%
+  rename("NEE" = netCO2F)
+
+dflux <- inner_join(dRe, dNEE)
+
+# Retrive temperature profile and put them in long format
+dTP <- svTemperature %>%
+  select(placette, date, ID_camp,
+         Tair, Tsurf, T5, T10, T15, T20, T25, T30, T40, T50,
+         T60, T70, T80, T90, T100) %>%
+  gather("T_type", "T_value", 4:18) %>%
+  do(filter(., complete.cases(.))) %>%
+  group_by(T_type, placette) %>%
+  filter(n() >= 8)%>% # keep if 8 obs (or more)
+  ungroup()
+
+# Merge T profiles and ER fluxes
+df <- inner_join(dTP, dflux)
+
+# Merge with WTL
+dWT <- svCtrlFact%>%
+  select(placette, date, WTL)
+df <- inner_join(df, dWT)
+
+# data means
+mdf <- df %>%
+  group_by(ID_camp)%>%
+  summarise(date = first(date),
+            WT_m = mean(WTL, na.rm = TRUE),
+            WT_se = sd(WTL, na.rm = TRUE)/sqrt(n()),
+            Re_m = mean(Re, na.rm = TRUE),
+            Re_se = sd(Re, na.rm = TRUE)/sqrt(n()),
+            NEE_m = mean(NEE, na.rm = TRUE),
+            NEE_se = sd(NEE, na.rm = TRUE)/sqrt(n())
+            )%>%
+  mutate(CI95 = (95/2)*Re_se, CI90 = (90/2)*Re_se) # Calcul à revoir
+```
+
+## Évolution de la respiration au cours du temps
+
+### barre : standard error
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+# Define the top and bottom of the errorbars
+limits <- aes(ymax = Re_m+Re_se, ymin=Re_m-Re_se)
+
+ggplot(mdf, aes(x=date, y=Re_m, group=1))+
+  geom_point(size=4, shape=1)+
+  geom_errorbar(limits, width=0.2)+
+#   geom_line(data=mdf, aes(x=date, y=(Re_m+CI95), color = "red"), linetype="dashed") +
+#   geom_line(data=mdf, aes(x=date, y=(Re_m-CI95), color = "red"), linetype="dashed") +
+#   geom_line(data=mdf, aes(x=date, y=(Re_m+CI90), color = "blue"), linetype="dashed") +
+#   geom_line(data=mdf, aes(x=date, y=(Re_m-CI90), color = "blue"), linetype="dashed") +
+#   labs(title="Évolution de la respiration de l'écosystème en fonction du temps \n  (moyenne des 20 placettes)", x="temps", y="Re (µmol.m⁻².s⁻²)")+
+  labs(x="time", y=expression(paste("Respiration (", mu, mol,m^-2,s^-1,")", sep="")))+
+  theme_bw(base_size=28)+
+  theme(legend.position="none")
+```
+
+
+La ligne tiretée rouge correspond à la moyenne de l'ensembles des points
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+ggplot(df, aes(x=date, y=Re))+
+  geom_line(data=mdf, aes(x=date, y=Re_m, color = "red"), linetype = "dashed") +
+  geom_line() +
+  labs(title=("Évolution de la respiration de l'écosystème en fonction du temps"))+
+  facet_wrap(~placette)+
+  theme_bw()
+```
+
+
+## Évolution de l'échange net de l'écosystème (NEE) au cours du temps
+
+La ligne tiretée rouge correspond à la moyenne de l'ensembles des points
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+ggplot(df, aes(x=date, y=NEE))+
+  geom_line(data=mdf, aes(x=date, y=NEE_m, color = "red"), linetype = "dashed") +
+  geom_line() +
+  labs(title=("Évolution de l'échanege net de l'écosystème en fonction du temps"))+
+  facet_wrap(~placette)+
+  theme_bw()
+```
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
+ggplot(df, aes(x=date, y=WTL))+
+  geom_line(data=mdf, aes(x=date, y=WT_m, color = "red"), linetype = "dashed") +
+  geom_line() +
+  labs(title=("Évolution de la respiration de l'écosystème en fonction du temps"))+
+  facet_wrap(~placette)+
+  theme_bw()
+```

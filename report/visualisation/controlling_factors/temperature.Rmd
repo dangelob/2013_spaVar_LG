@@ -1,0 +1,50 @@
+---
+title: "Temperatures"
+author: "Benoît D'ANGELO"
+date: "23/02/2015"
+output: html_document
+---
+```{r, echo=FALSE, message=FALSE}
+library(laguettevarspa)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+
+```{r, echo=FALSE}
+df <- svTemperature %>%
+  select(ID_camp, placette, date, Tair, Tsurf, T5, T10, T15, T20, T25, T30,
+         T40, T50, T60, T70, T80, T90, T100)%>%
+  gather("profondeur", "temperature", 4:18)%>%
+  separate(date, c("year","month", "day"),remove = F)
+
+dfT <- df %>%
+  group_by(year, month, profondeur) %>%
+  summarise(T_sd = sd(temperature, na.rm=T), temperature = mean(temperature, na.rm=T))
+
+dfT <- as.data.frame(dfT)
+```
+
+```{r, echo=FALSE}
+dfP <- df %>%
+  group_by(year, profondeur) %>%
+  filter(year != 2015) %>%
+  summarise(T_sd = sd(temperature, na.rm=T), temperature = mean(temperature, na.rm=T))
+
+ggplot(dfP, aes(x=T_sd, y=profondeur))+
+  geom_point()+
+#   geom_line(aes(group=profondeur))+
+  facet_wrap(~year)+
+  theme_bw()
+```
+
+```{r, echo=FALSE}
+dfTs <- filter(dfT, profondeur %in% c("Tair", "T10", "T15","T30", "T100") & year!=2015)
+
+ggplot(dfTs, aes(x=month, y=temperature, color = profondeur))+
+  geom_point()+
+  geom_line(aes(group=profondeur))+
+  facet_wrap(~year)+
+  theme_bw()
+```
