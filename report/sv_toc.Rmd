@@ -1,0 +1,29 @@
+---
+output:
+  html_document:
+    includes:
+      in_header: in_header.html
+    theme: flatly
+---
+
+# Spatial Variability
+
+## Part I : Visualisation
+### Flux
+#### <a href="visualisation/flux/ER.html"> ER flux</a>
+#### <a href="visualisation/flux/NEE.html"> NEE flux </a>
+### Controlling factors
+#### <a href="visualisation/controlling_factors/temperature.html"> temperature </a>
+
+## Part II : Relationship between fluxes and temperatures
+#### <a href="relation_flux_T/GPP_T.html"> GPP flux </a>
+#### <a href="relation_flux_T/ER_T.html"> ER flux </a>
+
+## Part III : Maps
+WIP
+
+## Part IV : Modelisation
+#### <a href="modelisation/modelisation.html"> tests </a>
+
+## Part V : Carbon balance
+#### <a href="carbonbalance/definitions.html"> definitions/introduction </a>

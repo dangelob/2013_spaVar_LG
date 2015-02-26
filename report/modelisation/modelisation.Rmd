@@ -1,3 +1,11 @@
+---
+output:
+  html_document:
+    includes:
+      in_header: ../in_header.html
+    theme: flatly
+---
+
 Evolution par placette
 ========================================================
 

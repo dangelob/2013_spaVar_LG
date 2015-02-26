@@ -1,0 +1,11 @@
+---
+output:
+  html_document:
+    includes:
+      in_header: ../in_header.html
+    theme: flatly
+---
+
+# Carbon Balance
+## definitions
+### <a href="definitions.html"> definitions </a>

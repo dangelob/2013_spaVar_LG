@@ -1,0 +1,14 @@
+---
+output:
+  html_document:
+    includes:
+      in_header: ../in_header.html
+    theme: flatly
+---
+
+# Relationship between fluxes and temperatures
+## ER
+### <a href="ER_T.html"> ER flux</a>
+## GPP
+### <a href="GPP_T.html"> GPP flux</a>
+## NEE
