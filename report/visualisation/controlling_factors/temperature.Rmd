@@ -2,7 +2,11 @@
 title: "Temperatures"
 author: "Benoît D'ANGELO"
 date: "23/02/2015"
-output: html_document
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
 ---
 ```{r, echo=FALSE, message=FALSE}
 library(laguettevarspa)
