@@ -1,8 +1,12 @@
 ---
-title: "veg_overview_p7"
+title: "Vegetation cover"
 author: "Benoît D'ANGELO"
 date: "10/02/2015"
-output: html_document
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
 ---
 
 <h3><a href="../vis_toc.html"> Visualisation </a></h3>
