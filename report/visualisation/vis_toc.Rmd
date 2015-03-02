@@ -32,6 +32,8 @@ output:
 
 ### Vegetation
 
+#### <a href="controlling_factors/veg_overview_p7.html"> Vegetation cover</a>
+
 #### <a href="controlling_factors/molin.html"> Molinia Caerulea </a>
 
 #### <a href="controlling_factors/eriop.html"> Eriophorum </a>
