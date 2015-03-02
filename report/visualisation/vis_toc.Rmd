@@ -8,8 +8,36 @@ output:
 
 # Visualisation
 ***
-## Flux
-### <a href="flux/ER.html"> ER flux</a>
-### <a href="flux/NEE.html"> NEE flux </a>
+
+## GHG Flux
+
+#### <a href="flux/ER.html"> Ecosystem Respiration</a>
+#### <a href="flux/NEE.html"> Net Ecosystem Exchange</a>
+
 ## Controlling factors
-#### <a href="controlling_factors/temperature.html"> temperature </a>
+
+### Physical Properties
+
+#### <a href="controlling_factors/temperature.html"> Peat temperature </a>
+
+### Hydrology
+
+#### <a href="controlling_factors/wtl.html"> water table level </a>
+
+#### <a href="controlling_factors/RH.html"> relative humidity </a>
+
+### Physico-chemical properties
+
+#### <a href="controlling_factors/pHcond.html"> pH and conductivity </a>
+
+### Vegetation
+
+#### <a href="controlling_factors/molin.html"> Molinia Caerulea </a>
+
+#### <a href="controlling_factors/eriop.html"> Eriophorum </a>
+
+#### <a href="controlling_factors/callu.html"> Calluna vulgaris </a>
+
+#### <a href="controlling_factors/erica.html"> Erica tetralix </a>
+
+#### <a href="controlling_factors/sphag.html"> Sphagnum </a>

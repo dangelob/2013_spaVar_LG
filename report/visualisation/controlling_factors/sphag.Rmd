@@ -1,0 +1,41 @@
+---
+title: "Sphagnum"
+author: "Benoît D'ANGELO"
+date: "02/03/2015"
+output:
+  html_document:
+    fig_height: 7
+    fig_width: 9
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+---
+<h3><a href="../vis_toc.html"> Visualisation </a></h3>
+  
+***
+
+```{r load_env, eval=TRUE, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+library(laguettevarspa)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+source("../../../src/report/vis_veg_plot.R")
+source("../../../src/functions/trt_veg.R")
+
+savpth <- "../../../graphs/visualisation"
+```
+
+
+```{r load_data, eval=TRUE, echo=FALSE, message=FALSE}
+cover <- trt_veg()%>%
+  filter(specie %in% c("sphagnum"))
+```
+
+## sphagnum cover
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8}
+veg_cover(cover)
+ggsave("sphag_cover.pdf", path=savpth)
+```

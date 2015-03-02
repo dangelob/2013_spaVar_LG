@@ -1,0 +1,72 @@
+---
+title: "Water Table Level (WTL)"
+author: "Benoît D'ANGELO"
+date: "23/02/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+---
+### <a href="../vis_toc.html"> Visualisation </a>
+
+***
+```{r, echo=FALSE, message=FALSE}
+rm(list=ls())
+library(laguettevarspa)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
+
+```
+
+
+```{r load_dat, echo=FALSE}
+# données par placette
+df <- svCtrlFact%>%
+  select(ID_camp, placette, date, PiezoNap, PiezoVeg, WTL)%>%
+  mutate(WTL = -WTL)%>%
+  separate(date, c("year","month", "day"),remove = F)
+
+# moyenne de l'ensemble des placettes
+dfm <- df %>%
+  group_by(ID_camp)%>%
+  summarise(date=min(date),
+            year=unique(year),
+            WTL_sd=sd(WTL, na.rm=T),
+            WTL=mean(WTL, na.rm=T)
+            )
+
+```
+
+## Mean WTL
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(dfm, aes(x=date, y=WTL, group=year))+
+  geom_point()+
+  geom_line()+
+  geom_line(aes(x=date, y=WTL+WTL_sd), linetype="dashed")+
+  geom_line(aes(x=date, y=WTL-WTL_sd), linetype="dashed")+
+#   geom_line(aes(group=profondeur))+
+#   facet_wrap(~year)+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=30, hjust=1))
+ggsave("WTL_mean_evolution.pdf", path=savpth)
+```
+
+# WTL for each replicate
+
+The red line show the mean behavior
+
+```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9}
+ggplot(df, aes(x=date, y=WTL, group=year))+
+  geom_point()+
+  geom_line()+
+  geom_line(data=dfm, aes(x=date, y=WTL, group=year), color="tomato")+
+  facet_wrap(~placette)+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=30, hjust=1))
+ggsave("WTL_p7_evolution.pdf", path=savpth)
+```

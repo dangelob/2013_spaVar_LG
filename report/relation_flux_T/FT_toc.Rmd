@@ -6,9 +6,10 @@ output:
     theme: flatly
 ---
 
-# Relationship between fluxes and temperatures
-## ER
+# T-Flux relations
+***
+
 ### <a href="ER_T.html"> ER flux</a>
-## GPP
+
 ### <a href="GPP_T.html"> GPP flux</a>
-## NEE
+

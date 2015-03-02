@@ -4,10 +4,16 @@ author: "Benoît D'ANGELO"
 date: "23/02/2015"
 output:
   html_document:
+    fig_height: 7
+    fig_width: 9
     includes:
       in_header: ../../in_header.html
     theme: flatly
+    toc: yes
 ---
+<h3><a href="../vis_toc.html"> Visualisation </a></h3>
+  
+***
 ```{r, echo=FALSE, message=FALSE}
 library(laguettevarspa)
 library(dplyr)
@@ -20,8 +26,12 @@ library(ggplot2)
 df <- svTemperature %>%
   select(ID_camp, placette, date, Tair, Tsurf, T5, T10, T15, T20, T25, T30,
          T40, T50, T60, T70, T80, T90, T100)%>%
+  mutate(ID_camp=as.factor(ID_camp))%>%
   gather("profondeur", "temperature", 4:18)%>%
   separate(date, c("year","month", "day"),remove = F)
+
+# Order levels
+df$profondeur <- with(df, factor(profondeur, levels = rev(levels(profondeur))))
 
 dfT <- df %>%
   group_by(year, month, profondeur) %>%
@@ -29,6 +39,29 @@ dfT <- df %>%
 
 dfT <- as.data.frame(dfT)
 ```
+
+## Temperature evolution
+
+```{r, echo=FALSE,warning=FALSE}
+ggplot(df, aes(x=temperature, y=profondeur, group=ID_camp, color=ID_camp))+
+  geom_point()+
+  facet_wrap(~placette)+
+  theme_bw()
+```
+
+## Temperature monthly evolution (selected depth)
+
+```{r, echo=FALSE}
+dfTs <- filter(dfT, profondeur %in% c("Tair", "T10", "T15","T30", "T100") & year!=2015)
+
+ggplot(dfTs, aes(x=month, y=temperature, color = profondeur))+
+  geom_point()+
+  geom_line(aes(group=profondeur))+
+  facet_wrap(~year)+
+  theme_bw()
+```
+
+## Temperature standard deviation per year
 
 ```{r, echo=FALSE}
 dfP <- df %>%
@@ -39,16 +72,6 @@ dfP <- df %>%
 ggplot(dfP, aes(x=T_sd, y=profondeur))+
   geom_point()+
 #   geom_line(aes(group=profondeur))+
-  facet_wrap(~year)+
-  theme_bw()
-```
-
-```{r, echo=FALSE}
-dfTs <- filter(dfT, profondeur %in% c("Tair", "T10", "T15","T30", "T100") & year!=2015)
-
-ggplot(dfTs, aes(x=month, y=temperature, color = profondeur))+
-  geom_point()+
-  geom_line(aes(group=profondeur))+
   facet_wrap(~year)+
   theme_bw()
 ```

@@ -5,8 +5,7 @@ date: "10/02/2015"
 output: html_document
 ---
 
-### <a href="../TOC_VS.html"> Retour 1re page </a>
-
+<h3><a href="../vis_toc.html"> Visualisation </a></h3>
 ***
 
 ```{r load_env, eval=TRUE, echo=FALSE, message=FALSE}
@@ -16,84 +15,25 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 
-source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/functions/ld_fn_model.R")
+source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/functions/trt_veg.R")
 
-output_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs"
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 ```
 
 ```{r load_data, eval=TRUE, echo=FALSE, message=FALSE}
-df <- svVegetation
-
-# # À partir du 19/03/2015 si rien dans le nombre de molinie mettre 0
-# t <- filter(df, ID_camp >= 10)%>%
-#   group_by(ID_camp, placette) %>%
-#   
-#   molcheck <- function(x){
-#     # This fonction add a row with cover = 0 for a specie if not present in the df
-#     if("molinia" %in% x$specie){
-#       }else{
-#         cat("treatement \n")
-#         row <- data.frame(ID_camp = unique(x$ID_camp),
-#                           date = unique(x$date),
-#                           placette = unique(x$placette),
-#                           specie = "molinia",
-#                           cover = NA,
-#                           number = 0,
-#                           height_m = NA,
-#                           height_sd = NA,
-#                           N = NA)
-#         result <- rbind(as.data.frame(x), row)
-#         return(result)
-#         }
-#     }
-# 
-# t <- df %>%
-#   group_by(ID_camp, placette)%>%
-#   do(molcheck(.))
-
+df <- trt_veg()
 ```
 
-```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
-dfprim <- filter(df, specie %in% c("calluna", "erica", "eriophorum", "molinia", "sphagnum"))
-ggplot(dfprim, aes(x=ID_camp, y=cover))+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=20}
+# test <- filter(df, ID_site)
+ggplot(df, aes(x=ID_camp, y=cover))+
+#   geom_bar()+
   geom_point()+
-  facet_grid(placette~specie)
+#   facet_grid(ID_site~placette)à
+  facet_grid(placette~specie)+
+  theme_bw()
+#   facet_grid(placette~specie)
+# ggsave("WTL_mean_evolution.pdf", path=savpth)
 
 ```
 
-```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
-dfmol <- filter(df, specie %in% c("molinia")) %>%
-  filter(!is.na(number))
-# A partir du 19/3/2014 les molinies et erio sont comptés
-ggplot(dfmol, aes(x=date, y=number, color = as.factor(ID_camp)))+
-  geom_point(size = 4)+
-  facet_wrap(~placette)
-
-ggplot(dfmol, aes(x=date, y=height_m, color=as.factor(ID_camp)))+
-  geom_point(size=4)+
-  facet_wrap(~placette)
-
-
-ggplot(dfmol, aes(x=number, y=height_m, color=as.factor(ID_camp)))+
-  geom_point(size=4)+
-  facet_wrap(~placette)
-
-```
-
-```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8, dpi=100}
-dferio <- filter(df, specie %in% c("eriophorum")) %>%
-  filter(!is.na(number))
-# A partir du 19/3/2014 les molinies et erio sont comptés
-ggplot(dferio, aes(x=ID_camp, y=number, color = as.factor(ID_camp)))+
-  geom_point(size = 4)+
-  facet_wrap(~placette)
-
-ggplot(dferio, aes(x=date, y=height_m, color=as.factor(ID_camp)))+
-  geom_point(size=4)+
-  facet_wrap(~placette)
-
-ggplot(dferio, aes(x=number, y=height_m, color=as.factor(ID_camp)))+
-  geom_point(size=4)+
-  facet_wrap(~placette)
-
-```

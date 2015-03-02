@@ -7,17 +7,23 @@ output:
 ---
 
 # Spatial Variability
+***
 
-## Part I : Visualisation
-### Flux
-#### <a href="visualisation/flux/ER.html"> ER flux</a>
-#### <a href="visualisation/flux/NEE.html"> NEE flux </a>
-### Controlling factors
-#### <a href="visualisation/controlling_factors/temperature.html"> temperature </a>
+## <a href="visualisation/vis_toc.html"> Visualisation</a>
+This part is dedicated to data visualisation one parameter at a time.
 
-## Part II : Relationship between fluxes and temperatures
-#### <a href="relation_flux_T/GPP_T.html"> GPP flux </a>
-#### <a href="relation_flux_T/ER_T.html"> ER flux </a>
+#### GHG fluxes:
+Describe the evolution of <a href="visualisation/flux/ER.html"> ER </a> and <a href="visualisation/flux/NEE.html"> NEE </a> fluxes.
+
+#### Controlling factors:
+Describe the evolution of the <a href="visualisation/controlling_factors/temperature.html"> peat temperature </a>, <a href="visualisation/controlling_factors/wtl.html"> water table level </a> and vegetation.
+
+
+## <a href="visualisation/FT_toc.html"> T-Flux relations </a>
+On this part is explored the relationship between the fluxes and the temperatures:
+
+* <a href="relation_flux_T/ER_T.html"> ER and the temperatures </a>
+* <a href="relation_flux_T/GPP_T.html"> GPP and the temperatures </a>
 
 ## Part III : Maps
 WIP
@@ -27,3 +33,8 @@ WIP
 
 ## Part V : Carbon balance
 #### <a href="carbonbalance/definitions.html"> definitions/introduction </a>
+
+***
+
+## OLD
+#### <a href="VS_vegetation/VS_vegetation.html"> VS_vegetation </a>
