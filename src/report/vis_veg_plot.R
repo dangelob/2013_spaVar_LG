@@ -14,8 +14,9 @@ veg_evol <- function(df, y){
 
 # plot for cover evolution
 veg_cover <- function(df){
-  p <- ggplot(df, aes(x=ID_camp, y=cover))+
-    geom_point(size = 3, shape=21)+
+  p <- ggplot(df, aes(x=ID_camp, y=cover, group=1))+
+    geom_line()+
+    geom_point(size = 2.5, shape=21, fill="white")+
     facet_wrap(~placette)+
     theme_bw()
   return(p)
