@@ -1,0 +1,182 @@
+---
+title: "Flux normality testing"
+author: "Benoît D'ANGELO"
+date: "03/03/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+bibliography: ../../sv.bib
+---
+<h3><a href="../vis_toc.html"> Visualisation </a></h3>
+  
+***
+
+# Testing normality
+
+## Choosing a normality test
+
+There are multiples ways to test if a variable population is normally distributed from a sample (@Razali2011): 
+
+* graphical methods
+* numerical methods (skewness and kurtosis indices)
+* formal normality tests
+
+Within formal normality tests the most commons are:
+
+* Shapiro-Wilk
+* Kolmogorov-Smirnov
+* Lilliefors
+* Anderson-Darling
+
+These tests have different power especially when the sample's number of observation is low (N < 30). According to the results found by @Razali2011 we use the Shapiro-Wilk test as it is the one with the higher power for small sample size.
+
+## WARNINGS:
+
+All the things below are copy/paste from [Stackoverflow](http://stackoverflow.com/questions/15427692/perform-a-shapiro-wilk-normality-test)
+
+in r :  
+`shapiro.test` tests the Null hypothesis that "the samples come from a Normal distribution" against the alternative hypothesis "the samples do not come from a Normal distribution"
+
+This means that if your p-value <= 0.05, then you would reject the NULL hypothesis that the samples came from a Normal distribution
+To put it loosely, there is a rare chance that the samples came from a normal distribution. 
+The side-effect of this hypothesis testing is that this rare chance happens very rarely
+What I am trying to say is that, there are many many cases under which the "extreme" requirements (p < 0.05) are not satisfied which leads to acceptance of "NULL hypothesis" most of the times, which might be misleading.
+
+In practice, if an analysis assumes normality, e.g. lm, I would not do this Shapiro-Wilk's test, but do the analysis and look at diagnostic plots of the outcome of the analysis to judge whether any assumptions of the analysis where violated too much. For linear regression using lm this is done by looking at some of the diagnostic plots you get using `plot(lm())`. Statistics is not a series of steps that cough up a few numbers (hey p < 0.05!) but requires a lot of experience and skill in judging how to analysis your data correctly.
+
+For linear regression,
+
+* Don't worry much about normality. The CLT (central limit theorem) takes over quickly and if you have all but the smallest sample sizes and an even remotely reasonable looking histogram you are fine.
+* Worry about unequal variances (heteroskedasticity). I worry about this to the point of (almost) using HCCM (Heteroscedasticity-Corrected Covariance Matrices ) tests by default. A scale location plot will give some idea of whether this is broken, but not always. Also, there is no a priori reason to assume equal variances in most cases.
+* Outliers. A cooks distance of > 1 is reasonable cause for concern.
+
+
+
+
+# Fluxes data normality
+
+```{r setup, multipleplots, message=FALSE, echo=FALSE}
+rm(list=ls(all=TRUE))
+library(laguettevarspa)
+library(dplyr)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
+knitr::opts_chunk$set(echo=FALSE)
+options(width = 100)
+```
+
+
+```{r fn}
+# Return pvalue for shapiro-wilk test as a dataframe
+get_norm <- function(df){
+    test <- shapiro.test(df$netCO2F)$p.value
+    r <- data.frame(pval = test, 
+                    norm = ifelse(test > 0.05, TRUE, FALSE))
+    return(r)
+    }
+qqnorml <- function(X, name){
+  qqnorm(X$netCO2F, main=paste("Q-Q plot for:", name))
+  qqline(X$netCO2F)
+#   abline(b=1, a=0)
+  return(data.frame(r=1))
+  }
+```
+
+```{r ER}
+# Load data
+# all data
+df <- svNetFlux %>%
+#   filter(type == "ER")%>%
+  mutate(ID_camp = as.factor(ID_camp), placette = as.factor(placette))
+# average data per field campaign
+dfm <- df %>%
+  group_by(ID_camp, type)%>%
+  summarise(netCO2F=mean(netCO2F, na.rm=T))
+
+ER <- filter(df, type == "ER")
+NEE <- filter(df, type == "NEE")
+```
+
+
+## ER
+
+### Normality for all data pooled
+```{r}
+# normality test for all data
+get_norm(ER)
+r <- qqnorml(ER, "all data")
+```
+
+With all data pooled, the sample distribution is not normal
+
+### Normality per replicate
+```{r}
+# normality sample per replicate
+ER %>%
+  group_by(placette) %>%
+  do(get_norm(.))
+```
+```{r, fig.width=3, fig.height=3}
+r <- ER %>%
+  group_by(placette) %>%
+  do(qqnorml(., as.character(unique(.$placette))))
+```
+
+### Normality per field campaign
+```{r}
+# normality sample per field campaign
+ER %>%
+  group_by(ID_camp) %>%
+  do(get_norm(.))
+```
+```{r, fig.width=3, fig.height=3}
+r <- ER %>%
+  group_by(ID_camp) %>%
+  do(qqnorml(., as.character(unique(.$ID_camp))))
+```
+
+## NEE
+
+### Normality for all data pooled
+```{r}
+# normality test for all data
+get_norm(NEE)
+r <- qqnorml(NEE, "all data")
+```
+
+
+### Normality per replicate
+```{r}
+# normality sample per replicate
+NEE %>%
+  group_by(placette) %>%
+  do(get_norm(.))
+```
+```{r, fig.width=3, fig.height=3}
+r <- NEE %>%
+  group_by(placette) %>%
+  do(qqnorml(., as.character(unique(.$placette))))
+```
+
+### Normality per field campaign
+```{r}
+# normality sample per field campaign
+NEE %>%
+  group_by(ID_camp) %>%
+  do(get_norm(.))
+```
+```{r, fig.width=3, fig.height=3}
+r <- NEE %>%
+  group_by(ID_camp) %>%
+  do(qqnorml(., as.character(unique(.$ID_camp))))
+```
+
+# Conclusions
+
+The data as a whole are not normally distributed for ER and NEE.
+On the other hand, split either by replicate or by field campaign, the data seems in majority normally distributed.
+
+# References
