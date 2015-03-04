@@ -56,6 +56,11 @@ B <- filter(df, year==2014)
 t.test(A$netCO2F, B$netCO2F)
 ```
 
+## Normality test:
+
+The normality tests are available [here](flux_norm_test.html)
+
+
 ## Individual plot measurements
 
 ```{r, echo=FALSE, fig.width=10, fig.height=6}

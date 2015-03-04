@@ -14,6 +14,7 @@ output:
 ***
 
 ```{r, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
 library(laguettevarspa)
 library(dplyr)
 library(tidyr)
@@ -32,7 +33,7 @@ df <- svNetFlux %>%
   filter(type == "ER")%>%
   separate(date, c("year","month", "day"),remove = F) %>%
   separate(timestamp, c("ts_date", "time"), sep=" ") %>%
-  mutate(time = substr(time, 1, 5))
+  mutate(time = substr(time, 1, 5), ID_camp = as.factor(ID_camp))
 
 lab_Y <- "ER"
 ```
@@ -55,6 +56,10 @@ A <- filter(df, year==2013)
 B <- filter(df, year==2014)
 t.test(A$netCO2F, B$netCO2F)
 ```
+
+## Normality test:
+
+The normality tests are available [here](flux_norm_test.html)
 
 ## Individual plot measurements
 
