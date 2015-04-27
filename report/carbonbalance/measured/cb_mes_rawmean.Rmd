@@ -1,0 +1,14 @@
+---
+title: "cb_mes_rawmean"
+author: "Benoît D'ANGELO"
+date: "27 avril 2015"
+output:
+  html_document:
+    fig_height: 7
+    fig_width: 9
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+---
+
