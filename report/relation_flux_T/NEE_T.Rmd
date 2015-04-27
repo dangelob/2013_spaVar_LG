@@ -1,0 +1,210 @@
+---
+title: "Relation between NEE and T at different depth"
+author: "Benoît D'ANGELO"
+date: "23/02/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../in_header.html
+    theme: flatly
+---
+
+# Introduction
+
+The aim of this document is to explore the relationship between NEE (Net Ecosystem Exchange) and the temperatures measured at differents depth.
+For each plot and each temperature, models (linear, exponential and arrhenius), have been calculated.
+
+```{r load_env, eval=TRUE, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+# library(laguettevarspa)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+source("../../src/report/relflT_plot.R")
+
+
+# Path to the project
+proj_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG"
+# Path to graph output
+savpth <- "../../graphs/relation_flux_T"
+
+# Allow plot a larger document
+options(width = 100)
+set_alias(w = "fig.width", h = "fig.height") 
+# opts_chunk$set(fig.align="center")
+```
+
+```{r load_data, eval=TRUE, echo=FALSE, message=FALSE}
+T_levels <- c("Tair", "Tsurf", "T5", "T10", "T15", "T20", "T25", "T30", "T40", "T50", "T60", "T70", "T80", "T90", "T100")
+# Flux data
+flux_p7 <- file.path(proj_pth, "data", "processed", "flux_p7.csv")
+df <- read.csv(flux_p7)%>%
+  filter(F_type == "NEE")%>%
+  mutate(date = as.Date(date),
+         T_type = factor(T_type, levels = T_levels))
+# Models data
+mdl_p7 <- file.path(proj_pth, "data", "processed", "mdl_p7.csv")
+mdl <- read.csv(mdl_p7)%>%
+  filter(F_type == "NEE")%>%
+  mutate(T_type = factor(T_type, levels = T_levels))
+
+# Create labels for plots 
+mlabel <- mdl %>%
+  select(placette, T_type, equation, intercept, slope, 
+         R2, R2a, R, se, AIC, Q10)
+mlabel[,4:11] <- lapply(mlabel[,4:11], round, 2)
+```
+
+# Overview
+
+## flux
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+ggplot(df, aes(x=date, y=flux))+
+  geom_point(size=4, shape=21)+
+  labs(y="NEE", x="date")+
+  theme_bw()
+
+summary(df$flux)
+```
+
+## Models
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=5}
+ggplot(mdl, aes(x=T_type, y=R2))+
+  geom_point(size=4, aes(color=equation)) +
+  labs(title=("Évolution du R² des modèles linéaire (rouge) et exponentiel (bleu) \n liant la photosynthèse brute de l'écosystème (Re) à la température (à différentes profondeur)"))+
+#   annotate("segment", x=c(5,6), xend=(5,6), y=(0.4,0.4), yend=(0.6,0.6), color = "blue", size = 2, arrow=arrow())+
+  facet_wrap(~equation)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1.1, vjust=1.1, size=12))
+
+# plt_name <- sprintf("/[pts][all][%s_%s].png",plt$labels$x, plt$labels$y)
+# ggsave(paste(savpth,plt_name,sep=""), width=12, height=8)
+```
+
+As there are a tons of regressions, first let's see an overview of the models behaviour : 
+
+### Mean R^2^ of the models depending on temperature measurement depth and used equation
+```{r, echo=FALSE}
+tableR2 <- mdl %>%
+  group_by(T_type, equation)%>%
+  summarise(R2=round(mean(R2, na.rm=T),2))%>%
+  spread(equation, R2)
+
+tableR2
+```
+
+the maximum R^2^ are `r max(tableR2$linear)`, `r max(tableR2$exponential)` and `r max(tableR2$arrhenius)`, for the linear, exponential and arrhenius equation respectively.
+For all equation the higher R^2^ mean is found for temperature measurde around 15 -- 20 cm depth.
+
+### Models evolution with temperature measurement depth
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=15, fig.height=8}
+ggplot(mdl, aes(x=T_type, y=R2))+
+  geom_line(aes(color=equation, group=equation)) +
+#   labs(title=("Évolution du R² des modèles linéaire (rouge) et exponentiel (bleu) \n liant la photosynthèse brute de l'écosystème (Re) à la température (à différentes profondeur)"))+
+  labs(y="R²", x="Profondeur de la température")+
+  facet_wrap(~placette)+
+  theme_bw(base_size = 20)+
+  theme(axis.text.x = element_text(angle=45, hjust=1.1, vjust=1.1, size=12))
+ggsave("NEE_R2_depth.pdf", path=savpth, width=12, height=8)
+```
+The exponential equation seems to be at least as good as the linear one.
+The arrhenius equation is usually close to the exponential one but lead to lower R^2^ with some exceptions depending on the measurement depth:
+
+# Details of the models
+
+## Air temperature
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
+plt_mdl_p7(df, Tsel = "Tair", xlab="Air temperature (°C)") # /src/report/relflT.R
+ggsave("NEE_Tair_p7.pdf", path=savpth, width=12, height=8)
+```
+
+### Linear equation
+```{r , eval=TRUE, multipleplots, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
+slplin <- mdl %>%
+  filter(T_type == "Tair", equation == "linear")%>%
+  select(slope, R2)
+
+distr(slplin$slope, "pente modèle linéaire")
+distr(slplin$R2, "R2 modèle linéaire")
+```
+
+### Exponential equation
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
+slplin <- mdl %>%
+  filter(T_type == "Tair", equation == "exponential")%>%
+  select(R2, Q10)
+
+distr(slplin$Q10, "Q10 modèle exponentiel")
+distr(slplin$R2, "R2 modèle exponentiel")
+```
+
+## Peat temperature at 15 cm depth
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
+plt_mdl_p7(df, Tsel = "T15", xlab="15 cm depth temperature (°C)") # /src/report/relflT.R
+ggsave("NEE_T15_p7.pdf", path=savpth, width=12, height=8)
+
+```
+
+### Linear equation
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
+slplin <- mdl %>%
+  filter(T_type == "T15", equation == "linear")%>%
+  select(slope, R2)
+
+distr(slplin$slope, "pente modèle linéaire")
+distr(slplin$R2, "R2 modèle linéaire")
+```
+
+### Exponential equation
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
+slplin <- mdl %>%
+  filter(T_type == "T15", equation == "exponential")%>%
+  select(R2, Q10)
+
+distr(slplin$Q10, "Q10 modèle exponentiel")
+distr(slplin$R2, "R2 modèle exponentiel")
+```
+
+
+
+```{r , eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+gQ10 <- round(exp(10*summary(lm(log(df$flux)~df$T15))$coef[2]), 2)
+gQ10
+```
+
+```{r , eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+gQ10 <- round(exp(10*summary(lm(log(df$flux)~df$T_Chb_N.mean))$coef[2]), 2)
+gQ10
+```
+
+
+
+
+
+
+
+# TRASH
+
+```{r TRASH, eval=FALSE}
+# TRASH: CODE NOT USED
+# Permet de tracer les courbes des modèles
+# Etait appelée par plt_mdl_p7
+mdls <- function(df){
+  mdl1 <- lm(flux ~ temperature, data = df)
+  mdl2 <- lm(log(flux) ~ temperature, data = df)
+  mdl3 <- lm(flux ~ temperature + WT, data = df)
+  
+  prd <- data.frame(temperature = seq(5, 40, by = 0.5), WT = seq(5, 40, by = 0.5))
+  result <- prd
+  result$mdl1 <- predict(mdl1, newdata = prd)
+#   result$mdl2 <- predict(mdl2, newdata = prd)
+  result$mdl2 <- exp((coef(mdl2)[2]*result$temperature) + coef(mdl2)[1])
+  result$mdl3 <- predict(mdl3, newdata = prd)
+  return(result)
+  }
+
+```
