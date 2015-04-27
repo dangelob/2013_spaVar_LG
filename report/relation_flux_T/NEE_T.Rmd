@@ -144,15 +144,15 @@ distr(slplin$R2, "R2 modèle exponentiel")
 
 ## Peat temperature at 15 cm depth
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
-plt_mdl_p7(df, Tsel = "T15", xlab="15 cm depth temperature (°C)") # /src/report/relflT.R
-ggsave("NEE_T15_p7.pdf", path=savpth, width=12, height=8)
+plt_mdl_p7(df, Tsel = "T50", xlab="50 cm depth temperature (°C)") # /src/report/relflT.R
+ggsave("NEE_T50_p7.pdf", path=savpth, width=12, height=8)
 
 ```
 
 ### Linear equation
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
 slplin <- mdl %>%
-  filter(T_type == "T15", equation == "linear")%>%
+  filter(T_type == "T50", equation == "linear")%>%
   select(slope, R2)
 
 distr(slplin$slope, "pente modèle linéaire")
@@ -162,12 +162,43 @@ distr(slplin$R2, "R2 modèle linéaire")
 ### Exponential equation
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
 slplin <- mdl %>%
-  filter(T_type == "T15", equation == "exponential")%>%
+  filter(T_type == "T50", equation == "exponential")%>%
   select(R2, Q10)
 
 distr(slplin$Q10, "Q10 modèle exponentiel")
 distr(slplin$R2, "R2 modèle exponentiel")
 ```
+
+
+## Peat temperature at 50 cm depth
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
+plt_mdl_p7(df, Tsel = "T50", xlab="50 cm depth temperature (°C)") # /src/report/relflT.R
+ggsave("NEE_T50_p7.pdf", path=savpth, width=12, height=8)
+
+```
+
+### Linear equation
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
+slplin <- mdl %>%
+  filter(T_type == "T50", equation == "linear")%>%
+  select(slope, R2)
+
+distr(slplin$slope, "pente modèle linéaire")
+distr(slplin$R2, "R2 modèle linéaire")
+```
+
+### Exponential equation
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
+slplin <- mdl %>%
+  filter(T_type == "T50", equation == "exponential")%>%
+  select(R2, Q10)
+
+distr(slplin$Q10, "Q10 modèle exponentiel")
+distr(slplin$R2, "R2 modèle exponentiel")
+```
+
+
+
 
 
 
@@ -192,7 +223,7 @@ gQ10
 ```{r TRASH, eval=FALSE}
 # TRASH: CODE NOT USED
 # Permet de tracer les courbes des modèles
-# Etait appelée par plt_mdl_p7
+# Était appelé par plt_mdl_p7
 mdls <- function(df){
   mdl1 <- lm(flux ~ temperature, data = df)
   mdl2 <- lm(log(flux) ~ temperature, data = df)
