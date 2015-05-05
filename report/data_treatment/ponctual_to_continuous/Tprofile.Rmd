@@ -1,0 +1,100 @@
+---
+title: "Temperature profile"
+author: "Benoît D'ANGELO"
+date: "05/05/2015"
+output:
+  html_document:
+  includes:
+  in_header: ../../in_header.html
+theme: flatly
+---
+  
+<h3><a href="../../vis_toc.html"> Visualisation </a></h3>
+***
+
+```{r setup}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/data_treatment"
+
+```
+
+```{r load data}
+# Fichier VS -- Données ponctuelles
+df_p <- left_join(svCtrlFact, svTemperature) %>%
+  select(ID_camp, placette, date, NEE_time, Re_time, TairDeb, TairFin, Tsurf, T5, T10, T15, T20, T25, T20, T30, T40, T50, T60, T70, T80, T90, T100, Tair)%>%
+  unite(NEE_ts, date, NEE_time, remove = FALSE)%>%
+  unite(Re_ts, date, Re_time, remove = FALSE)%>%
+  mutate(NEE_ts = as.POSIXct(NEE_ts, format = "%Y-%m-%d_%H:%M"),
+         Re_ts = as.POSIXct(Re_ts, format = "%Y-%m-%d_%H:%M"),
+         mtime = NEE_ts + ((Re_ts - NEE_ts)/2))%>%
+  select(-NEE_ts, -Re_ts, -NEE_time, -Re_time)%>%
+  mutate(key_p = as.numeric(mtime))
+
+## Données météo, données continues
+df_c <- wrLGT %>%
+  select(timestamp, Ts_1, Ts_2, Ts_3, Ts_4, Ta)%>%
+  rename(cT5=Ts_1, cT10=Ts_2, cT20=Ts_3, cT40=Ts_4, cTair=Ta) %>%
+  mutate(timestamp = as.POSIXct(df_c$timestamp, format = "%d/%m/%Y %H:%M"), key_c = as.numeric(df_c$timestamp))
+
+# Keys
+## valeur numérique 
+df_p <- data.table(df_p, key = "key_p")
+df_c <- data.table(df_c, key = "key_c")
+## vs directement POSIXct
+df_p <- data.table(df_p, key = "mtime")
+df_c <- data.table(df_c, key = "timestamp")
+
+df <- df_c[df_p, roll="nearest"]
+```
+
+
+```{r}
+# data in long format
+ddf <- df%>%
+  select(timestamp, ID_camp, placette, cT5, cT10, cT20, cT40, TairDeb, TairFin, Tair, Tsurf, T5, T10, T15, T20, T30, T40, T50, T60, T70, T80, T90, T100)%>%
+  gather(c_type, c_value, 4:7)%>%
+  gather(p_type, p_value, 4:19)%>%
+  filter(!is.na(p_value))
+  
+# p_type/c_type couple to exclude because of not enough value
+out <- ddf %>%
+  group_by(placette, p_type, c_type)%>%
+  summarise(N=length(.$p_value))%>%
+  filter(N <=3) # 4 data points are the min
+
+# All rows in ddf that do not have a match in out 
+# (that are not excluded)
+# then calculate linear regression and return param
+mdl <- anti_join(ddf, out, by=c("placette", "p_type", "c_type"))%>%
+  group_by(placette, p_type, c_type)%>%
+  do(lm_get_std(lm(.$p_value~.$c_value)))
+
+# Select the best continuous variable to interpolate ponctual measurements
+bestR2a <- mdl %>%
+  group_by(placette, p_type) %>%
+  filter(aR2 == max(aR2))%>%
+  arrange(placette, p_type)
+
+# manual Vérif
+# test <- filter(ddf, c_type == "cT5", p_type == "TairDeb")
+# 
+# p7 <- df[placette == "p01",]
+# m <- lm(p7$TairDeb~p7$cT5)
+# summary(m)
+# lm_get_std(m)
+# 
+# test <- df[placette == "p01",]
+# m <- lm(test$Tair~test$cTair)
+# summary(m)
+# lm_get_std(m)
+```
