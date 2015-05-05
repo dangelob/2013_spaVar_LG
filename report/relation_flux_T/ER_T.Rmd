@@ -34,6 +34,10 @@ savpth <- "../../graphs/relation_flux_T"
 options(width = 100)
 set_alias(w = "fig.width", h = "fig.height") 
 # opts_chunk$set(fig.align="center")
+
+# Notes
+# Les fichiers flux_p7.csv et mdl_p7.csv sont générés par : 
+# src/functions/calc_mdl_p7.R
 ```
 
 ```{r load_data, eval=TRUE, echo=FALSE, message=FALSE}
