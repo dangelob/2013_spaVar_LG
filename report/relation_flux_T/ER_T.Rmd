@@ -23,12 +23,14 @@ library(tidyr)
 library(knitr)
 
 source("../../src/report/relflT_plot.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/relflT_plot.R")
 
 
 # Path to the project
 proj_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG"
 # Path to graph output
 savpth <- "../../graphs/relation_flux_T"
+
 
 # Allow plot a larger document
 options(width = 100)
@@ -72,6 +74,17 @@ ggplot(df, aes(x=date, y=flux))+
   theme_bw()
 
 summary(df$flux)
+```
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+dp <- df %>%
+  filter(T_type == "Tair", F_type == "ER")
+
+ggplot(dp, aes(x=flux, y=T_value))+
+  geom_point(size=4, shape=21)+
+  labs(y="Temperature", x="ER")+
+  theme_bw()
+
 ```
 
 ## Models
