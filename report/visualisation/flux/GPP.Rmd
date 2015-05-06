@@ -1,0 +1,88 @@
+---
+title: "Ecosystem Respiration (ER)"
+author: "Benoît D'ANGELO"
+date: "23/02/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+---
+
+<h3><a href="../vis_toc.html"> Visualisation </a></h3>
+  
+***
+
+```{r, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+library(laguettevarspa)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
+
+source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/vis_plot.R")
+# TODO
+# units on axis
+
+```
+
+
+```{r load_data, echo=FALSE}
+df <- svNetFlux %>%
+  filter(type == "ER")%>%
+  separate(date, c("year","month", "day"),remove = F) %>%
+  separate(timestamp, c("ts_date", "time"), sep=" ") %>%
+  mutate(time = substr(time, 1, 5), ID_camp = as.factor(ID_camp))
+
+lab_Y <- "ER"
+```
+
+## ER measurements across field campaign
+```{r, echo=FALSE, fig.width=9}
+# Observation number
+nobs <- paste("N :", as.character(NROW(df)))
+# quality criteria on R2
+df$colR2 <- ifelse(df$R2 >= 0.8, ">= 0.8", "< 0.8")
+
+flplt(df, lab_Y) # /src/report/vis_plot
+ggsave("ER_evolution.pdf", path=savpth)
+```
+
+## Annual mean differences significance:
+
+```{r}
+A <- filter(df, year==2013)
+B <- filter(df, year==2014)
+t.test(A$netCO2F, B$netCO2F)
+```
+
+## Normality test:
+
+The normality tests are available [here](flux_norm_test.html)
+
+## Individual plot measurements
+
+```{r, echo=FALSE, fig.width=10, fig.height=6}
+p7_fl_plt(df, lab_Y)
+ggsave("ER_p7_evolution.pdf", path=savpth)
+```
+
+## Annual mean and standard deviation
+```{r, echo=FALSE}
+df %>%
+  group_by(year) %>%
+  summarise(ER = round(mean(netCO2F, na.rm=T),2), ER_sd = round(sd(netCO2F, na.rm=T),2))
+```
+
+## Montly ER means per year
+
+```{r, echo=FALSE}
+ann_month_mean_fl(df, lab_Y)
+```
+
+## Montly ER mean (pooling all years)
+
+```{r, echo=FALSE}
+month_mean_fl(df, lab_Y)
+```
