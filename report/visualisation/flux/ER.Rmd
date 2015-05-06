@@ -66,7 +66,9 @@ The normality tests are available [here](flux_norm_test.html)
 ## Individual plot measurements
 
 ```{r, echo=FALSE, fig.width=10, fig.height=6}
-p7_fl_plt(df, lab_Y)
+p7_fl_plt(df, lab_Y)+
+  geom_point(aes(color=colR2))+
+  scale_colour_manual(values=c("red","black"))
 ggsave("ER_p7_evolution.pdf", path=savpth)
 ```
 

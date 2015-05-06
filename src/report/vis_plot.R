@@ -3,13 +3,13 @@
 # Flux evolution againt time across field campaign
 flplt <- function(X, laby="netCO2F"){  
   p <- ggplot(X, aes(x=date, y=netCO2F))+
-    geom_point(aes(color=colR2), shape=21, size=4)+
+    geom_point(shape=21, size=4)+
     annotate("text", x=as.Date("2013-03-15"), y=18, label=nobs, size=3.5)+
     labs(y = laby)+
     scale_colour_manual(values=c("red","black"))+
     theme_bw()+
     guides(color=guide_legend(title=NULL))+
-    theme(legend.position=c(.9,.9), legend.key=element_blank())
+    theme()
   return(p)
 }
 
@@ -17,9 +17,8 @@ flplt <- function(X, laby="netCO2F"){
 p7_fl_plt <- function(X, laby="netCO2F"){
   p <- ggplot(X, aes(x=date, y=netCO2F))+
     geom_line(aes(group = year))+
-    geom_point(aes(color=colR2))+
+    geom_point()+
     labs(y=laby)+
-    scale_colour_manual(values=c("red","black"))+
     geom_text(data=df, aes(x=date, y=netCO2F+4, label=time), size=2.5, angle=90)+
     facet_wrap(~placette)+
     theme_bw()+
