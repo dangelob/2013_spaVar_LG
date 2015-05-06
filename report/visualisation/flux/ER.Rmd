@@ -45,7 +45,9 @@ nobs <- paste("N :", as.character(NROW(df)))
 # quality criteria on R2
 df$colR2 <- ifelse(df$R2 >= 0.8, ">= 0.8", "< 0.8")
 
-flplt(df, lab_Y) # /src/report/vis_plot
+flplt(df, lab_Y)+ # /src/report/vis_plot
+  geom_point(aes(color=colR2), shape=21, size=4)+
+  theme(legend.position=c(.9,.9), legend.key=element_blank())
 ggsave("ER_evolution.pdf", path=savpth)
 ```
 
