@@ -52,7 +52,13 @@ df <- read.csv(flux_p7)%>%
          T_type = factor(T_type, levels = T_levels))
 # Models data
 mdl_p7 <- file.path(proj_pth, "data", "processed", "mdl_p7.csv")
+mdl_all <- file.path(proj_pth, "data", "processed", "mdl_all.csv")
+
 mdl <- read.csv(mdl_p7)%>%
+  filter(F_type == "ER")%>%
+  mutate(T_type = factor(T_type, levels = T_levels))
+
+mdl_all <- read.csv(mdl_all)%>%
   filter(F_type == "ER")%>%
   mutate(T_type = factor(T_type, levels = T_levels))
 
@@ -103,7 +109,42 @@ ggplot(mdl, aes(x=T_type, y=R2))+
 
 As there are a tons of regressions, first let's see an overview of the models behaviour : 
 
-### Mean R^2^ of the models depending on temperature measurement depth and used equation
+### R^2^ of the models (all replicate pooled) depending on temperature measurement depth and used equation
+```{r, echo=FALSE}
+tableR2 <- mdl_all %>%
+  group_by(T_type, equation)%>%
+  summarise(R2=round(mean(R2, na.rm=T),2))%>%
+  spread(equation, R2)
+
+tableR2
+```
+
+the maximum R^2^ are `r max(tableR2$linear)`, `r max(tableR2$exponential)` and `r max(tableR2$arrhenius)`, for the linear, exponential and arrhenius equation respectively.
+For all equation the higher R^2^ mean is found for temperature measured around 10 -- 25 cm depth.
+
+```{r, echo=FALSE}
+dp25 <- df %>%
+  filter(T_type == "T25", F_type == "ER")
+
+ggplot(dp25, aes(y=flux, x=T_value))+
+  geom_point(size=4, shape=21)+
+  labs(x="Temperature", y="ER")+
+  geom_smooth(method="glm",family=gaussian(link="log"), se=FALSE)+
+  theme_bw()
+
+m <- lm(log(flux)~T_value, data=dp25)
+a <- exp(coef(m)[1])
+b <- coef(m)[2]
+plot(flux~T_value, data=dp25, ylab = "ER", xlab = "T15")
+text(x = 5, y = 15, labels = "R2 = 0.71")
+curve(a*exp(b*x), add=TRUE, col="blue")
+
+
+```
+
+
+### Mean R^2^ of the models (per replicate) depending on temperature measurement depth and used equation
+
 ```{r, echo=FALSE}
 tableR2 <- mdl %>%
   group_by(T_type, equation)%>%
