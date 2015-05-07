@@ -71,7 +71,7 @@ df <- left_join(df, dWT)
 # 10 T profiles are missing in the 2014-05-19 campaign
 df <- filter(df, !is.na(T_type))
 
-# Compute models 
+# Compute models per p7 
 mdl <- df %>%
   group_by(placette, T_type, F_type) %>%
   do(mdl_calc(.))
@@ -79,10 +79,21 @@ mdl <- df %>%
 # Compute Q10
 mdl$Q10 <- ifelse(mdl$equation == "exponential", exp(10*mdl$slope) , NA)
 
+# Compute models all placette pooled
+mdl_all <- df %>%
+  group_by(T_type, F_type) %>%
+  do(mdl_calc(.))
+
+# Compute Q10
+mdl_all$Q10 <- ifelse(mdl_all$equation == "exponential", exp(10*mdl_all$slope) , NA)
+
 # Write the output in a file
-# Models output
+# Models output p7
 filepath_mdl <- paste0(outpath, "/mdl_p7.csv")
 write.csv(mdl, filepath_mdl, quote=F, row.names=F)
+# Models output all
+filepath_mdl <- paste0(outpath, "/mdl_all.csv")
+write.csv(mdl_all, filepath_mdl, quote=F, row.names=F)
 # Data compilation
 filepath_flux <- paste0(outpath, "/flux_p7.csv")
 write.csv(df, filepath_flux, quote=F, row.names=F)
