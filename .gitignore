@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 data/cleaned
+data/processed
 data/deraw
 report/VS/figure
 report/map/figure
