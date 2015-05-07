@@ -13,6 +13,7 @@ output:
 
 #### <a href="flux/ER.html"> Ecosystem Respiration</a>
 #### <a href="flux/NEE.html"> Net Ecosystem Exchange</a>
+#### <a href="flux/GPP.html"> Gross Primary Production</a>
 
 ## Controlling factors
 
