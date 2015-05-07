@@ -142,17 +142,17 @@ distr(slplin$Q10, "Q10 modèle exponentiel")
 distr(slplin$R2, "R2 modèle exponentiel")
 ```
 
-## Peat temperature at 15 cm depth
+## Peat temperature at 30 cm depth
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
-plt_mdl_p7(df, Tsel = "T50", xlab="50 cm depth temperature (°C)") # /src/report/relflT.R
-ggsave("NEE_T50_p7.pdf", path=savpth, width=12, height=8)
+plt_mdl_p7(df, Tsel = "T30", xlab="30 cm depth temperature (°C)") # /src/report/relflT.R
+ggsave("NEE_T30_p7.pdf", path=savpth, width=12, height=8)
 
 ```
 
 ### Linear equation
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
 slplin <- mdl %>%
-  filter(T_type == "T50", equation == "linear")%>%
+  filter(T_type == "T30", equation == "linear")%>%
   select(slope, R2)
 
 distr(slplin$slope, "pente modèle linéaire")
@@ -162,7 +162,7 @@ distr(slplin$R2, "R2 modèle linéaire")
 ### Exponential equation
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
 slplin <- mdl %>%
-  filter(T_type == "T50", equation == "exponential")%>%
+  filter(T_type == "T30", equation == "exponential")%>%
   select(R2, Q10)
 
 distr(slplin$Q10, "Q10 modèle exponentiel")
