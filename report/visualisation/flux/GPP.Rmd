@@ -1,5 +1,5 @@
 ---
-title: "Ecosystem Respiration (ER)"
+title: "Gross Primary Production (GPP)"
 author: "Benoît D'ANGELO"
 date: "23/02/2015"
 output:
@@ -28,25 +28,50 @@ source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/rep
 ```
 
 
-```{r load_data, echo=FALSE}
-df <- svNetFlux %>%
+```{r load_data, echo=FALSE, message=FALSE}
+df_ER <- svNetFlux %>%
   filter(type == "ER")%>%
-  separate(date, c("year","month", "day"),remove = F) %>%
-  separate(timestamp, c("ts_date", "time"), sep=" ") %>%
-  mutate(time = substr(time, 1, 5), ID_camp = as.factor(ID_camp))
+  select(ID_camp, placette, netCO2F, timestamp)%>%
+  rename(ER=netCO2F, ER_ts=timestamp)%>%
+  mutate(ER_ts=as.POSIXct(ER_ts))
 
-lab_Y <- "ER"
+df_NEE <- svNetFlux %>%
+  filter(type == "NEE") %>%
+  select(ID_camp, placette, netCO2F, timestamp)%>%
+  rename(NEE=netCO2F, NEE_ts=timestamp)%>%
+  mutate(NEE_ts=as.POSIXct(NEE_ts))
+
+df <- inner_join(df_ER, df_NEE)%>%
+  mutate(netCO2F=NEE+ER) %>%
+  group_by(ID_camp, placette)%>%
+  mutate(timestamp=mean.POSIXct(c(ER_ts, NEE_ts)))%>%
+  ungroup()%>%
+  select(ID_camp, placette, netCO2F, timestamp)%>%
+  # common with ER and NEE
+  separate(timestamp, c("date", "time"), sep=" ") %>%
+  separate(date, c("year","month", "day"),remove = F) %>%
+  mutate(time = substr(time, 1, 5), ID_camp = as.factor(ID_camp), date=as.Date(date))
+
+lab_Y <- "GPP"
+
+mdf <- df %>%
+  group_by(ID_camp)%>%
+  summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F), date=mean(date))
 ```
 
-## ER measurements across field campaign
+## GPP measurements across field campaign
 ```{r, echo=FALSE, fig.width=9}
 # Observation number
 nobs <- paste("N :", as.character(NROW(df)))
-# quality criteria on R2
-df$colR2 <- ifelse(df$R2 >= 0.8, ">= 0.8", "< 0.8")
 
 flplt(df, lab_Y) # /src/report/vis_plot
-ggsave("ER_evolution.pdf", path=savpth)
+ggsave("GPP_evolution.pdf", path=savpth)
+
+ggplot(mdf, aes(x=date, y=netCO2F))+
+  geom_point(size=4)+
+  geom_linerange(aes(x=date, ymin=netCO2F-netCO2F_sd, ymax=netCO2F+netCO2F_sd))+
+  theme_bw()
+
 ```
 
 ## Annual mean differences significance:
@@ -59,29 +84,29 @@ t.test(A$netCO2F, B$netCO2F)
 
 ## Normality test:
 
-The normality tests are available [here](flux_norm_test.html)
+The normality tests (for NEE and ER) are available [here](flux_norm_test.html)
 
 ## Individual plot measurements
 
 ```{r, echo=FALSE, fig.width=10, fig.height=6}
 p7_fl_plt(df, lab_Y)
-ggsave("ER_p7_evolution.pdf", path=savpth)
+ggsave("GPP_p7_evolution.pdf", path=savpth)
 ```
 
 ## Annual mean and standard deviation
 ```{r, echo=FALSE}
 df %>%
   group_by(year) %>%
-  summarise(ER = round(mean(netCO2F, na.rm=T),2), ER_sd = round(sd(netCO2F, na.rm=T),2))
+  summarise(GPP = round(mean(netCO2F, na.rm=T),2), GPP_sd = round(sd(netCO2F, na.rm=T),2))
 ```
 
-## Montly ER means per year
+## Montly GPP means per year
 
 ```{r, echo=FALSE}
 ann_month_mean_fl(df, lab_Y)
 ```
 
-## Montly ER mean (pooling all years)
+## Montly GPP mean (pooling all years)
 
 ```{r, echo=FALSE}
 month_mean_fl(df, lab_Y)
