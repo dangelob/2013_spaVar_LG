@@ -70,7 +70,9 @@ ggsave("GPP_evolution.pdf", path=savpth)
 ggplot(mdf, aes(x=date, y=netCO2F))+
   geom_point(size=4)+
   geom_linerange(aes(x=date, ymin=netCO2F-netCO2F_sd, ymax=netCO2F+netCO2F_sd))+
+  labs(y="GPP")
   theme_bw()
+ggsave("GPP_evolution_avg.pdf", path=savpth)
 
 ```
 

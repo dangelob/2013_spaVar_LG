@@ -36,6 +36,10 @@ df <- svNetFlux %>%
   mutate(time = substr(time, 1, 5))
 
 lab_Y <- "NEE"
+
+mdf <- df %>%
+  group_by(ID_camp)%>%
+  summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F), date=mean(date))
 ```
 
 
@@ -50,6 +54,13 @@ flplt(df, lab_Y)+ # /src/report/vis_plot
   geom_point(aes(color=colR2), shape=21, size=4)+
   theme(legend.position=c(.9,.9), legend.key=element_blank())
 ggsave("NEE_evolution.pdf", path=savpth)
+
+ggplot(mdf, aes(x=date, y=netCO2F))+
+  geom_point(size=4)+
+  geom_linerange(aes(x=date, ymin=netCO2F-netCO2F_sd, ymax=netCO2F+netCO2F_sd))+
+  labs(y="NEE")
+  theme_bw()
+ggsave("NEE_evolution_avg.pdf", path=savpth)
 ```
 
 ## Annual mean differences significance:
