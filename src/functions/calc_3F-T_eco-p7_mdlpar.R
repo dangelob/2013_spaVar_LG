@@ -8,6 +8,7 @@
 # Setup -------------------------------------------------------------------
 rm(list=ls(all=TRUE))
 library(laguettevarspa)
+library(bdphdtoolbox)
 library(dplyr)
 library(tidyr)
 
@@ -19,6 +20,7 @@ outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/dat
 # Retrieve ER data
 dRe <- svNetFlux %>%
   filter(type == "ER") %>%
+  # filter(date <= as.Date("2014-01-01"))%>%
   select(placette, date, netCO2F) %>%
   rename("ER" = netCO2F)%>%
   mutate(F_type = "ER")
@@ -61,38 +63,38 @@ dTP <- svTemperature %>%
 df <- full_join(dTP, dflux, by=c("placette", "date"))
 
 # Merge with WTL
-dWT <- svCtrlFact %>%
-  mutate(placette = as.character(placette))%>%
-  select(placette, date, WTL)
-
-df <- left_join(df, dWT)
+# dWT <- svCtrlFact %>%
+#   mutate(placette = as.character(placette))%>%
+#   select(placette, date, WTL)
+# df <- left_join(df, dWT)
 
 # For now no gap filling, the non-complete cases are removed
 # 10 T profiles are missing in the 2014-05-19 campaign
 df <- filter(df, !is.na(T_type))
 
-# Compute models per p7 
+
+# Compute models per plots ------------------------------------------------
 mdl <- df %>%
   group_by(placette, T_type, F_type) %>%
-  do(mdl_calc(.))
-
+  do(lmc_calc_all(.$flux, .$T_value))
 # Compute Q10
 mdl$Q10 <- ifelse(mdl$equation == "exponential", exp(10*mdl$slope) , NA)
 
-# Compute models all placette pooled
+
+
+# Compute models with all plot pooled -------------------------------------
 mdl_all <- df %>%
   group_by(T_type, F_type) %>%
-  do(mdl_calc(.))
-
+  do(lmc_calc_all(.$flux, .$T_value))
 # Compute Q10
 mdl_all$Q10 <- ifelse(mdl_all$equation == "exponential", exp(10*mdl_all$slope) , NA)
 
 # Write the output in a file
 # Models output p7
-filepath_mdl <- paste0(outpath, "/mdl_p7.csv")
+filepath_mdl <- paste0(outpath, "/3F-T_p7_mdlpar.csv")
 write.csv(mdl, filepath_mdl, quote=F, row.names=F)
 # Models output all
-filepath_mdl <- paste0(outpath, "/mdl_all.csv")
+filepath_mdl <- paste0(outpath, "/3F-T_eco_mdlpar.csv")
 write.csv(mdl_all, filepath_mdl, quote=F, row.names=F)
 # Data compilation
 filepath_flux <- paste0(outpath, "/flux_p7.csv")
