@@ -1,0 +1,292 @@
+---
+title: "global ER model"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+
+```{r load data}
+# Fichier VS -- Données ponctuelles
+# préparation donnée vég
+dfveg <- svVegetation %>%
+  group_by(ID_camp, placette)%>%
+  filter(specie == "molinia")%>%
+  mutate(area_m = mol_LtoS(height_m*10),
+         area = area_m * number)%>%
+  select(ID_camp, placette, number, area)
+dfveg$area <- ifelse(dfveg$number == 0, 0, dfveg$area)
+
+# Fichier VS -- Données ponctuelles
+df <- svNetFlux %>%
+  filter(type == "ER")%>%
+  select(timestamp, ID_camp, placette, R2, pvalue, mtime, netCO2F)%>%
+  left_join(., svTemperature, by=c("ID_camp", "placette")) %>%
+  left_join(., svCtrlFact, by=c("ID_camp", "placette")) %>%
+  left_join(., dfveg, by=c("ID_camp", "placette"))%>%
+  select(ID_camp, placette, R2, pvalue, mtime, netCO2F, T10, T15, T20, T25, WTL, RH_m, area)%>%
+  filter(netCO2F > 0) # remove value below 0
+  # mutate(T25_borto = (T25+5)/(15+5))
+```
+
+
+```{r functions}
+pER_T <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~T25, xlab="température à -25 cm (°C)",ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+pmesmod <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~predman, ylim=c(0,20), xlim=c(0,20),xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
+}
+
+```
+
+
+# ER representation
+
+According to <a href="../../relation_flux_T/ER_T.html"> this document </a> the best ER representation with temperature at global scale is found by using an exponential model with -25 cm depth temperature.
+
+# Temperature, ER~aexp(bT25)
+
+```{r calc mdl}
+# Linear version ------------------------
+df_mT_lm <- df
+
+mT_lm <- lm(log(netCO2F)~T25, data = df_mT_lm, na.action = na.exclude)
+
+a <- exp(coef(mT_lm)[1])
+b <- coef(mT_lm)[2]
+
+df_mT_lm$resi <- residuals(mT_lm)
+df_mT_lm$pred <- predict(mT_lm)
+df_mT_lm$predman <- a*exp(b*df_mT_lm$T25)
+
+rmse_ER_T25_lm <- sqrt(mean((df_mT_lm$predman-df_mT_lm$netCO2F)^2,na.rm=TRUE))
+
+# Non linear version --------------------
+df_mT <- df
+
+mT <- nls(netCO2F~a*exp(b*T25), data = df_mT, na.action = na.exclude, start=list(a=0.2, b=0.2))
+
+a <- coef(mT)[1]
+b <- coef(mT)[2]
+
+df_mT$resi <- residuals(mT)
+df_mT$pred <- predict(mT)
+df_mT$predman <- a*exp(b*df_mT$T25)
+
+rmse_ER_T25 <- sqrt(mean((df_mT$predman-df_mT$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=6}
+par(mfrow=c(1,2))
+pER_T(df_mT)
+curve(a*exp(b*x), add=T, col="blue")
+pmesmod(df_mT)
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+ER = `r a` * exp(`r b` * T25)
+
+### diagnostic values
+
+rmse = `r rmse_ER_T25` (nls)
+
+aic = `r AIC(mT)` (nls)
+
+***
+
+rmse = `r rmse_ER_T25_lm` (lm)
+
+aic = `r AIC(mT_lm)` (lm)
+
+```{r exprt_fig, error=FALSE, results="hide"}
+cairo_pdf(file.path(savpth, "ER_T25_ecosyt.pdf"), width=6.5, height=5)
+pER_T(df_mT)
+curve(a*exp(b*x), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "ER_T25_ecosyt_mesmod.pdf"), width=5, height=5)
+pmesmod(df_mT)
+dev.off()
+```
+
+
+
+
+## Residual vs other controlling factors
+
+```{r, fig.height=9}
+par(mfrow=c(2,2))
+plot(df_mT$resi~df_mT$WTL, main="vs. WTL") 
+plot(df_mT$resi~df_mT$RH_m, main="vs. RH") 
+plot(df_mT$resi~df_mT$area, main="vs. pseudoLAI") 
+
+par(mfrow=c(1,1))
+```
+
+# Temperature and Relative humidity ER~(aRH+b)*exp(cT25)
+```{r}
+# Non linear version --------------------
+df_mrh <- df
+
+mrh <- nls(netCO2F~(a*RH_m + b)*exp(c*T25), data = df_mrh, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+
+a <- coef(mrh)[1]
+b <- coef(mrh)[2]
+c <- coef(mrh)[3]
+
+df_mrh$resi <- residuals(mrh)
+df_mrh$pred <- predict(mrh)
+df_mrh$predman <- (a*df_mrh$RH_m + b)*exp(c*df_mrh$T25)
+
+rmse_ER_RHT25 <- sqrt(mean((df_mrh$predman-df$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=6}
+par(mfrow=c(1,2))
+pER_T(df_mrh)
+pmesmod(df_mrh)
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+ER = (`r a` * RH + `r b`) * exp(`r c` * T25)
+
+### diagnostic values
+
+rmse = `r rmse_ER_RHT25` (nls)
+
+aic = `r AIC(mrh)` (nls)
+
+```{r, error=FALSE, results="hide"}
+cairo_pdf(file.path(savpth, "ER_RHT25_ecosyt.pdf"), width=6.5, height=5)
+pER_T(df_mrh)
+dev.off()
+
+cairo_pdf(file.path(savpth, "ER_RHT25_ecosyt_mesmod.pdf"), width=5, height=5)
+pmesmod(df_mrh)
+dev.off()
+```
+
+
+***
+***
+***
+
+# Diagnostic plot
+
+## ER~T25 all data points (nls)
+
+### model summary
+```{r}
+summary(mT)
+# lm_get_exp(mT_lm, details = "all")
+```
+
+### Check for normality of the residuals
+```{r}
+par(mfrow=c(1,2))
+hist(df_mT$resi)
+qqnorm(df_mT$resi)
+qqline(df_mT$resi)
+par(mfrow=c(1,1))
+
+plot(df_mT$resi~df_mT$predman)
+
+```
+
+## ER~T25 all data points (lm)
+
+### model summary
+```{r}
+summary(mT_lm)
+lm_get_exp(mT_lm, details = "all")
+```
+
+### Check for normality of the residuals
+
+```{r, fig.height=6}
+par(mfrow=c(1,2))
+hist(resid(mT_lm)) # normality
+plot(mT_lm, which=2) # normality
+par(mfrow=c(1,1))
+```
+
+The residuals are normal
+
+### Check if some point are highly influential on the regression
+
+```{r, fig.height=6}
+par(mfrow=c(1,2))
+plot(mT_lm, which=4) # leverage
+plot(mT_lm, which=5) # leverage
+par(mfrow=c(1,1))
+```
+
+Concerning Cook's distance and it's interpretation, some says that values below 1 are fine, other that value below 4/Observation number are fine.
+Either case we are not too bad
+
+### Check for homogeneity
+
+```{r}
+plot(mT_lm, which=1) # homogeneity
+```
+
+
+## ER~RH_T25 all data points (nls)
+
+
+### model summary
+```{r}
+summary(mrh)
+# lm_get_exp(mT_lm, details = "all")
+```
+
+### Check for normality of the residuals
+```{r}
+par(mfrow=c(1,2))
+hist(df_mrh$resi)
+qqnorm(df_mrh$resi)
+qqline(df_mrh$resi)
+par(mfrow=c(1,1))
+
+plot(df_mrh$resi~df_mrh$predman)
+```

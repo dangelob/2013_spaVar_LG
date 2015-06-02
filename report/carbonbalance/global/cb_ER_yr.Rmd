@@ -1,0 +1,382 @@
+---
+title: "global ER model per year"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+
+```{r load data}
+# Fichier VS -- Données ponctuelles
+# préparation donnée vég
+dfveg <- svVegetation %>%
+  group_by(ID_camp, placette)%>%
+  filter(specie == "molinia")%>%
+  mutate(area_m = mol_LtoS(height_m*10),
+         area = area_m * number)%>%
+  select(ID_camp, placette, number, area)
+  
+dfveg$area <- ifelse(dfveg$number == 0, 0, dfveg$area)
+# Fichier VS -- Données ponctuelles
+df <- svNetFlux %>%
+  filter(type == "ER")%>%
+  select(timestamp, ID_camp, placette, R2, pvalue, mtime, netCO2F)%>%
+  left_join(., svTemperature, by=c("ID_camp", "placette")) %>%
+  left_join(., svCtrlFact, by=c("ID_camp", "placette")) %>%
+  left_join(., dfveg, by=c("ID_camp", "placette"))%>%
+  select(ID_camp,date.x, placette, R2, pvalue, mtime, netCO2F, T10, T15, T20, T25, WTL, RH_m, area)%>%
+  separate(date.x, c("year", "m", "d"))%>%
+  filter(netCO2F > 0) # remove value below 0
+  # mutate(T25_borto = (T25+5)/(15+5))
+```
+
+
+```{r functions}
+pER_T <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~T25, xlab="température à -25 cm (°C)",ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+pmesmod <- function(X, ttl){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~predman, ylim=c(0,20), xlim=c(0,20),xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), main=ttl, data=X)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
+}
+
+```
+
+
+# ER representation
+
+According to <a href="../../relation_flux_T/ER_T.html"> this document </a> the best ER representation with temperature at global scale is found by using an exponential model with -25 cm depth temperature.
+
+# Temperature, ER~aexp(bT25)
+
+```{r calc mdl}
+# Linear version ------------------------
+# df_mT2013_lm <- df%>%
+#   filter(year == "2013")
+# 
+# mT2013_lm <- lm(log(netCO2F)~T25, data = df_mT2013_lm, na.action = na.exclude)
+# 
+# a <- exp(coef(mT2013_lm)[1])
+# b <- coef(mT2013_lm)[2]
+# 
+# df_mT2013_lm$resi <- residuals(mT2013_lm)
+# df_mT2013_lm$pred <- predict(mT2013_lm)
+# df_mT2013_lm$predman <- a*exp(b*df_mT2013_lm$T25)
+# 
+# rmse_ER_T25_lm <- sqrt(mean((df_mT2013_lm$predman-df_mT2013_lm$netCO2F)^2,na.rm=TRUE))
+
+# Non linear version --------------------
+## 2013 
+df_mT2013 <- df%>%
+  filter(year == "2013")
+
+mT2013 <- nls(netCO2F~a*exp(b*T25), data = df_mT2013, na.action = na.exclude, start=list(a=0.2, b=0.2))
+
+a2013 <- coef(mT2013)[1]
+b2013 <- coef(mT2013)[2]
+
+df_mT2013$resi <- residuals(mT2013)
+df_mT2013$pred <- predict(mT2013)
+df_mT2013$predman <- a2013*exp(b2013*df_mT2013$T25)
+
+rmse_ER_T25_2013 <- sqrt(mean((df_mT2013$predman-df_mT2013$netCO2F)^2,na.rm=TRUE))
+## 2014 
+df_mT2014 <- df%>%
+  filter(year == "2014")
+
+mT2014 <- nls(netCO2F~a*exp(b*T25), data = df_mT2014, na.action = na.exclude, start=list(a=0.2, b=0.2))
+
+a2014 <- coef(mT2014)[1]
+b2014 <- coef(mT2014)[2]
+
+df_mT2014$resi <- residuals(mT2014)
+df_mT2014$pred <- predict(mT2014)
+df_mT2014$predman <- a2014*exp(b2014*df_mT2014$T25)
+
+rmse_ER_T25_2014 <- sqrt(mean((df_mT2014$predman-df_mT2014$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=12}
+par(mfrow=c(2,2))
+pER_T(df_mT2013)
+curve(a2013*exp(b2013*x), add=T, col="blue")
+pER_T(df_mT2014)
+curve(a2014*exp(b2014*x), add=T, col="blue")
+pmesmod(df_mT2013, "2013")
+pmesmod(df_mT2014, "2014")
+par(mfrow=c(2,1))
+```
+
+### model equation
+
+#### 2013
+ER = `r a2013` * exp(`r b2013` * T25)
+
+#### 2014
+ER = `r a2014` * exp(`r b2014` * T25)
+
+### diagnostic values
+
+#### 2013
+
+rmse = `r rmse_ER_T25_2013` (nls)
+
+aic = `r AIC(mT2013)` (nls)
+
+#### 2014
+rmse = `r rmse_ER_T25_2014` (nls)
+
+aic = `r AIC(mT2014)` (nls)
+
+
+
+```{r exprt_fig, error=FALSE, results="hide"}
+#2013
+cairo_pdf(file.path(savpth, "ER_T25_ecosyt_2013.pdf"), width=6.5, height=5)
+pER_T(df_mT2013)
+curve(a2013*exp(b2013*x), add=T, col="blue")
+dev.off()
+#2014
+cairo_pdf(file.path(savpth, "ER_T25_ecosyt_2014.pdf"), width=6.5, height=5)
+pER_T(df_mT2014)
+curve(a2014*exp(b2014*x), add=T, col="blue")
+dev.off()
+
+# Mesurée vs modélisée ------------------
+#2013
+cairo_pdf(file.path(savpth, "ER_T25_ecosyt_mesmod_2013.pdf"), width=5, height=5)
+pmesmod(df_mT2013, "2013")
+dev.off()
+#2013
+cairo_pdf(file.path(savpth, "ER_T25_ecosyt_mesmod_2014.pdf"), width=5, height=5)
+pmesmod(df_mT2014, "2014")
+dev.off()
+```
+
+
+
+## Residual vs other controlling factors
+
+### 2013
+```{r, fig.height=6}
+par(mfrow=c(1,3))
+plot(df_mT2013$resi~df_mT2013$WTL, main="vs. WTL") 
+plot(df_mT2013$resi~df_mT2013$RH_m, main="vs. RH") 
+# plot(df_mT2013$resi~df_mT2013$area, main="vs. pseudoLAI") 
+par(mfrow=c(1,1))
+```
+
+### 2014
+```{r, fig.height=6}
+par(mfrow=c(1,3))
+plot(df_mT2014$resi~df_mT2014$WTL, main="vs. WTL") 
+plot(df_mT2014$resi~df_mT2014$RH_m, main="vs. RH") 
+plot(df_mT2014$resi~df_mT2014$area, main="vs. pseudoLAI", xlim=c(0, 300000)) 
+par(mfrow=c(1,1))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Temperature and Relative humidity ER~(aRH+b)*exp(cT25)
+```{r}
+# Non linear version --------------------
+# 2013
+df_mrh2013 <- df%>%
+  filter(year == "2013")
+
+mrh2013 <- nls(netCO2F~(a*RH_m + b)*exp(c*T25), data = df_mrh2013, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+
+a2013 <- coef(mrh2013)[1]
+b2013 <- coef(mrh2013)[2]
+c2013 <- coef(mrh2013)[3]
+
+df_mrh2013$resi <- residuals(mrh2013)
+df_mrh2013$pred <- predict(mrh2013)
+df_mrh2013$predman <- (a2013*df_mrh2013$RH_m + b2013)*exp(c2013*df_mrh2013$T25)
+
+rmse_ER_RHT25_2013 <- sqrt(mean((df_mrh2013$predman-df_mrh2013$netCO2F)^2,na.rm=TRUE))
+
+# 2014
+df_mrh2014 <- df%>%
+  filter(year == "2014")
+
+mrh2014 <- nls(netCO2F~(a*RH_m + b)*exp(c*T25), data = df_mrh2014, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+
+a2014 <- coef(mrh2014)[1]
+b2014 <- coef(mrh2014)[2]
+c2014 <- coef(mrh2014)[3]
+
+df_mrh2014$resi <- residuals(mrh2014)
+df_mrh2014$pred <- predict(mrh2014)
+df_mrh2014$predman <- (a2014*df_mrh2014$RH_m + b2014)*exp(c2014*df_mrh2014$T25)
+
+rmse_ER_RHT25_2014 <- sqrt(mean((df_mrh2014$predman-df_mrh2014$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=12}
+par(mfrow=c(2,2))
+pER_T(df_mrh2013)
+pER_T(df_mrh2014)
+pmesmod(df_mrh2013, "2013")
+pmesmod(df_mrh2014, "2014")
+par(mfrow=c(2,1))
+```
+
+### model equation
+
+#### 2013
+ER = (`r a2013` * RH + `r b2013`) * exp(`r c2013` * T25)
+
+#### 2014
+ER = (`r a2014` * RH + `r b2014`) * exp(`r c2014` * T25)
+
+### diagnostic values
+
+#### 2013
+rmse = `r rmse_ER_RHT25_2013` (nls)
+
+aic = `r AIC(mrh2013)` (nls)
+
+#### 2014
+rmse = `r rmse_ER_RHT25_2014` (nls)
+
+aic = `r AIC(mrh2014)` (nls)
+
+```{r, error=FALSE, results="hide"}
+# 2013
+cairo_pdf(file.path(savpth, "ER_RHT25_ecosyt_2013.pdf"), width=6.5, height=5)
+pER_T(df_mrh2013)
+dev.off()
+
+cairo_pdf(file.path(savpth, "ER_RHT25_ecosyt_mesmod_2013.pdf"), width=5, height=5)
+pmesmod(df_mrh2013, "2013")
+dev.off()
+
+# 2014
+cairo_pdf(file.path(savpth, "ER_RHT25_ecosyt_2014.pdf"), width=6.5, height=5)
+pER_T(df_mrh2014)
+dev.off()
+
+cairo_pdf(file.path(savpth, "ER_RHT25_ecosyt_mesmod_2014.pdf"), width=5, height=5)
+pmesmod(df_mrh2014, "2014")
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+# Temperature, Relative humidity, pseudo LAI, ER~(aRH+(bLAI))*exp(cT25)
+
+Pas de données mesurées en 2013 pour le nombre de molinie
+
+```{r}
+# Non linear version --------------------
+# 2013
+# Pas données
+
+# 2014
+df_mrhveg2014 <- df%>%
+  filter(year == "2014")
+
+mrhveg2014 <- nls(netCO2F~(a*RH_m + (b*area))*exp(c*T25), data = df_mrhveg2014, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+
+a2014 <- coef(mrhveg2014)[1]
+b2014 <- coef(mrhveg2014)[2]
+c2014 <- coef(mrhveg2014)[3]
+
+df_mrhveg2014$resi <- residuals(mrhveg2014)
+df_mrhveg2014$pred <- predict(mrhveg2014)
+df_mrhveg2014$predman <- (a2014*df_mrhveg2014$RH_m + (b2014*df_mrhveg2014$area))*exp(c2014*df_mrhveg2014$T25)
+
+rmse_ER_RHvegT25_2014 <- sqrt(mean((df_mrhveg2014$predman-df_mrhveg2014$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=6}
+par(mfrow=c(1,2))
+# pER_T(df_mrhveg2013)
+pER_T(df_mrhveg2014)
+# pmesmod(df_mrhveg2013, "2013")
+pmesmod(df_mrhveg2014, "2014")
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+#### 2014
+ER = (`r a2014` * RH + `r b2014`) * exp(`r c2014` * T25)
+
+### diagnostic values
+
+#### 2014
+rmse = `r rmse_ER_RHvegT25_2014` (nls)
+
+aic = `r AIC(mrhveg2014)` (nls)
+
+```{r, error=FALSE, results="hide"}
+# 2013
+# 2014
+cairo_pdf(file.path(savpth, "ER_RHvegT25_ecosyt_2014.pdf"), width=6.5, height=5)
+pER_T(df_mrhveg2014)
+dev.off()
+
+cairo_pdf(file.path(savpth, "ER_RHvegT25_ecosyt_mesmod_2014.pdf"), width=5, height=5)
+pmesmod(df_mrhveg2014, "2014")
+dev.off()
+```
+
