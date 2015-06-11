@@ -1,0 +1,202 @@
+---
+title: "Échange Net de l'Écosystème : model"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+```{r functions}
+pENE_T <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~T25, xlab="température à -25 cm (°C)",ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+pmesmod <- function(X){
+par(mar=c(4,4.5,.5,.5))
+plot(netCO2F~predman, ylim=c(0,20), xlim=c(0,20),xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
+}
+
+presmod <- function(X){
+par(mar=c(4,4,.5,.5))
+plot(resi~predman, xlab="valeurs prédites", ylab="résidus", data=X)
+}
+```
+
+
+```{r param_ER_GPPsat}
+## PARAM ER
+# T25 ; rmse = 1.93 ; AIC = 1554
+aER <- 0.4919894
+bER <- 0.1526263
+# T25 + WTL ; rmse = 1.58 ; AIC = 1407
+# aER <- 0.0183177
+# bER <- 0.3736716
+# cER <- 0.1459984
+
+## PARAM GPPsat
+# T15 param (June)
+aGPPsat <- 12.979553
+bGPPsat <- 19.9207232
+cGPPsat <- 8.9596685
+```
+
+```{r load data}
+# Fichier VS
+df_ER <- svNetFlux %>%
+  filter(type == "ER")%>%
+  select(timestamp, ID_camp, placette, R2, pvalue, mtime, netCO2F)%>%
+  left_join(., svTemperature, by=c("ID_camp", "placette")) %>%
+  left_join(., svCtrlFact, by=c("ID_camp", "placette")) %>%
+  select(ID_camp, placette, netCO2F, T25, WTL)%>%
+  mutate(predER = aER*exp(bER*T25))%>%
+  # mutate(predER = (aER*WTL+bER)*exp(cER*T25))%>%
+  rename(ER=netCO2F)%>%
+  filter(ER > 0) # remove value below 0
+
+
+
+df_GPP <- inner_join(df_tER, df_tNEE)%>%
+  mutate(netCO2F=NEE+ER) %>%
+  group_by(ID_camp, placette)%>%
+  mutate(timestamp=mean.POSIXct(c(ER_ts, NEE_ts)))%>%
+  ungroup()%>%
+  select(ID_camp, placette, netCO2F, timestamp)
+
+df_GPP <- df_GPP %>%
+  # filter(type == "GPP")%>%
+  # select(timestamp, ID_camp, placette, netCO2F)%>%
+  left_join(., svTemperature, by=c("ID_camp", "placette")) %>%
+  left_join(., svCtrlFact, by=c("ID_camp", "placette")) %>%
+  group_by(timestamp)%>%
+  mutate(PAR=mean(c(PAR_Deb, PAR_Fin, na.rm=TRUE)))%>%
+  ungroup()%>%
+  select(ID_camp, placette, netCO2F, Tair, T15, PAR)%>%
+  mutate(predGPPsat = aGPPsat * exp(-((T15-bGPPsat)/cGPPsat)^2))%>%
+  # mutate(predGPPsat = a * exp(-((Tair-b)/c)^2))%>%
+  rename(GPP=netCO2F)
+  # filter(netCO2F > 0) # remove value below 0
+
+df_NEE <- svNetFlux %>%
+  filter(type == "NEE") %>%
+  select(ID_camp, placette, netCO2F, timestamp)%>%
+  rename(NEE=netCO2F)
+
+df <- inner_join(df_ER, df_GPP)%>%
+  inner_join(.,df_NEE)%>%
+  do(na.omit(.))%>%
+  arrange(placette)
+```
+
+
+```{r}
+# Comme Borto mais attention plutot prendre Tair station ?
+mnls <- nls(NEE ~ (a*PAR*predGPPsat/(predGPPsat+PAR*a)-ER) , data=df, start=list(a=0.005))
+summary(mnls)
+
+df$resi <- resid(mnls)
+df$predNEE <- predict(mnls)
+```
+
+
+
+## ENE representation
+
+
+```{r, fig.width=8}
+t <- lm(df$NEE~df$predNEE)
+
+cairo_pdf(file.path(savpth, "ENE_mdl_ecosyst.pdf"), width=5, height=5)
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(df$NEE~df$predNEE, xlim=c(-5,10), ylim=c(-5,10), xlab=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("ENE mesurée (", mu, mol,m^-2,s^-1,")", sep=""))
+)
+abline(a = 0, b = 1, lty=2)
+text(9,10, "1:1", srt=45)
+dev.off()
+
+
+# rmse <- sqrt((sum(df$NEE-df$predNEE)^2)/NROW(df))
+rmse <- sqrt(mean((df$predNEE-df$NEE)^2,na.rm=TRUE))
+rmse
+```
+
+A voir : 
+
+- Comment estimer la qualité de la régression
+
+- Comment justifier l'utilisation de la fonction de June pour GPPsat
+
+
+
+```{r, fig.width=8}
+rmse <- c()
+for (i in unique(df$placette)){
+  temp <- df %>%
+    select(ID_camp, placette, NEE, predNEE)%>%
+    filter(placette == i)
+  trmse <- sqrt(mean((temp$predNEE-temp$NEE)^2,na.rm=TRUE))
+  rmse <- c(rmse, trmse)
+
+  plot(temp$NEE~temp$predNEE, xlim=c(-5,10), ylim=c(-5,10), main=paste(i, trmse))
+  abline(a = 0, b = 1)
+  # t <- lm(df$NEE~df$predNEE)
+}
+rmse
+dfrmse <- data.frame(placette=unique(df$placette), rmse=rmse)
+arrange(dfrmse, rmse)
+# rmse <- sqrt((sum(df$NEE-df$predNEE)^2)/NROW(df))
+```
+
+```{r, fig.width=8}
+temp <- df %>%
+  select(ID_camp, placette, NEE, predNEE)%>%
+  filter(placette == "p12")
+  # filter(placette == "p17")
+
+trmse <- round(sqrt(mean((temp$predNEE-temp$NEE)^2,na.rm=TRUE)), 2)
+           
+# cairo_pdf(file.path(savpth, "ENE_mdl_ecosyst_p17.pdf"), width=5, height=5)
+cairo_pdf(file.path(savpth, "ENE_mdl_ecosyst_p12.pdf"), width=5, height=5)
+
+par(mar=c(5.1,5.1,2.6,2.1))
+plot(temp$NEE~temp$predNEE, xlim=c(-5,10), ylim=c(-5,10), main=paste("p12 rmse = ", trmse),xlab=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), ylab=expression(paste("ENE mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+# plot(temp$NEE~temp$predNEE, xlim=c(-5,10), ylim=c(-5,10), main=paste("p17 rmse = ", trmse), xlab=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), ylab=expression(paste("ENE mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+  abline(a = 0, b = 1, lty=2)
+  text(9,10, "1:1", srt=45)
+
+dev.off()
+
+# rmse <- sqrt((sum(df$NEE-df$predNEE)^2)/NROW(df))
+```
