@@ -29,6 +29,8 @@ savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/grap
 ```
 
 ```{r load data}
+# Get data in line
+
 # Fichier VS -- Données ponctuelles
 df_p <- left_join(svCtrlFact, svTemperature) %>%
   select(ID_camp, placette, date, NEE_time, Re_time, TairDeb, TairFin, Tsurf, T5, T10, T15, T20, T25, T20, T30, T40, T50, T60, T70, T80, T90, T100, Tair)%>%
@@ -61,9 +63,11 @@ df <- df_c[df_p, roll="nearest"]
 
 
 ```{r}
+# find best correlation
+
 # data in long format
 ddf <- df%>%
-  select(timestamp, ID_camp, placette, cT5, cT10, cT20, cT40, TairDeb, TairFin, Tair, Tsurf, T5, T10, T15, T20, T30, T40, T50, T60, T70, T80, T90, T100)%>%
+  select(timestamp, ID_camp, placette, cT5, cT10, cT20, cT40, TairDeb, TairFin, Tair, Tsurf, T5, T10, T15, T20, T25 ,T30, T40, T50, T60, T70, T80, T90, T100)%>%
   gather(c_type, c_value, 4:7)%>%
   gather(p_type, p_value, 4:19)%>%
   filter(!is.na(p_value))
@@ -77,13 +81,26 @@ out <- ddf %>%
 # All rows in ddf that do not have a match in out 
 # (that are not excluded)
 # then calculate linear regression and return param
-mdl <- anti_join(ddf, out, by=c("placette", "p_type", "c_type"))%>%
+## per placette
+mdl_p7 <- anti_join(ddf, out, by=c("placette", "p_type", "c_type"))%>%
   group_by(placette, p_type, c_type)%>%
+  do(lm_get_std(lm(.$p_value~.$c_value)))
+## for all placette pooled
+mdl_all <- anti_join(ddf, out, by=c("placette", "p_type", "c_type"))%>%
+  group_by(p_type, c_type)%>%
   do(lm_get_std(lm(.$p_value~.$c_value)))
 
 # Select the best continuous variable to interpolate ponctual measurements
-bestR2a <- mdl %>%
+## per p7
+bestR2a_p7 <- mdl_p7 %>%
   group_by(placette, p_type) %>%
+  filter(aR2 == max(aR2))%>%
+  ungroup()%>%
+  arrange(p_type)
+
+## all p7 pooled
+bestR2a_all <- mdl_all %>%
+  group_by(p_type) %>%
   filter(aR2 == max(aR2))%>%
   ungroup()%>%
   arrange(p_type)
@@ -107,24 +124,48 @@ bestR2a <- mdl %>%
 ldf_c <- df_c %>%
   gather(c_type, c_value, 2:6)
 
-# Calculate continuous profile temperature
-result <- data.frame()
-for(i in 1:NROW(bestR2a)){
+# Calculate continuous profile temperature per p7
+result_p7 <- data.frame()
+for(i in 1:NROW(bestR2a_p7)){
 # for(i in 1:200){ # les 30 premiers cm
-  temp <- ldf_c[c_type == as.character(bestR2a$c_type[i])]
-  temp$pred <- bestR2a$intercept[i] + bestR2a$slope[i]*temp$c_value
-  temp$placette <- bestR2a$placette[i]
-  temp$p_type <- bestR2a$p_type[i]
-  result <- rbind(result, temp)
+  temp <- ldf_c[c_type == as.character(bestR2a_p7$c_type[i])]
+  temp$pred <- bestR2a_p7$intercept[i] + bestR2a_p7$slope[i]*temp$c_value
+  temp$placette <- bestR2a_p7$placette[i]
+  temp$p_type <- bestR2a_p7$p_type[i]
+  result_p7 <- rbind(result_p7, temp)
 }
-
-cTprofile <- result %>%
+cTprofile_p7 <- result_p7 %>%
   select(timestamp, placette, p_type, pred)%>%
   rename(depth=p_type, temperature=pred)%>%
   spread(depth, temperature)
+
+# Calculate continuous profile temperature for all p7
+result_all <- data.frame()
+for(i in 1:NROW(bestR2a_all)){
+  temp <- ldf_c[c_type == as.character(bestR2a_all$c_type[i])]
+  temp$pred <- bestR2a_all$intercept[i] + bestR2a_all$slope[i]*temp$c_value
+  temp$p_type <- bestR2a_all$p_type[i]
+  result_all <- rbind(result_all, temp)
+}
+cTprofile_all <- result_all %>%
+  select(timestamp, p_type, pred)%>%
+  rename(depth=p_type, temperature=pred)%>%
+  spread(depth, temperature)
+```
+
+
+```{r}
+# Export csv files
+
+# T15 <- select(cTprofile, timestamp, placette, T15)
+# T25 <- select(cTprofile, timestamp, placette, T25)
   
-write.csv(cTprofile, "../../../data/processed/cTprofile.csv", row.names=FALSE, quote=FALSE)
-write.csv(bestR2a, "../../../data/processed/cTprofile_par.csv", row.names=FALSE, quote=FALSE)
+write.csv(cTprofile_p7, "../../../data/processed/pdata_to_cdata/cTprofile_p7.csv", row.names=FALSE, quote=FALSE)
+write.csv(cTprofile_all, "../../../data/processed/pdata_to_cdata/cTprofile_all.csv", row.names=FALSE, quote=FALSE)
+# write.csv(cTprofile, "../../../data/processed/cTprofile_T15.csv", row.names=FALSE, quote=FALSE)
+# write.csv(cTprofile, "../../../data/processed/cTprofile_T25.csv", row.names=FALSE, quote=FALSE)
+write.csv(bestR2a_p7, "../../../data/processed/pdata_to_cdata/cTprofile_p7_par.csv", row.names=FALSE, quote=FALSE)
+write.csv(bestR2a_all, "../../../data/processed/pdata_to_cdata/cTprofile_all_par.csv", row.names=FALSE, quote=FALSE)
 # write.csv(cTprofile, "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cTprofile.csv", row.names=FALSE, quote=FALSE)
 # write.csv(bestR2a, "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cTprofile_par.csv", row.names=FALSE, quote=FALSE)
 
@@ -133,7 +174,7 @@ write.csv(bestR2a, "../../../data/processed/cTprofile_par.csv", row.names=FALSE,
 ## Example
 
 ```{r}
-plt <- cTprofile%>%
+plt <- cTprofile_p7%>%
   mutate(find = ifelse(placette == "p08", TRUE, FALSE))
 
 ggplot(plt, aes(x=timestamp, y=T5, color=find))+
