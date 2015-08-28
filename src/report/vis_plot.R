@@ -9,7 +9,9 @@ flplt <- function(X, laby="netCO2F"){
     scale_colour_manual(values=c("red","black"))+
     theme_bw()+
     guides(color=guide_legend(title=NULL))+
-    theme()
+    theme(panel.grid.major.x = element_blank(), # DIAPO
+          panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
+          panel.grid.minor = element_blank())# DIAPO
   return(p)
 }
 

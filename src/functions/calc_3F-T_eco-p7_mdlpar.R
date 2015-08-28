@@ -13,39 +13,13 @@ library(dplyr)
 library(tidyr)
 
 source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/functions/ld_fn_model.R")
+source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/functions/get3F.R")
 
 outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
 
-# loading and formating data ----------------------------------------------
-# Retrieve ER data
-dRe <- svNetFlux %>%
-  filter(type == "ER") %>%
-  # filter(date <= as.Date("2014-01-01"))%>%
-  select(placette, date, netCO2F) %>%
-  rename("ER" = netCO2F)%>%
-  mutate(F_type = "ER")
-# negative flux are impossible : probably 0
-dRe$ER<- ifelse(dRe$ER < 0, 0.0001, dRe$ER)
-
-# Retrieve NEE data
-dNEE <- svNetFlux %>%
-  filter(type == "NEE") %>%
-  select(placette, date, netCO2F) %>%
-  rename("NEE" = netCO2F)%>%
-  mutate(F_type = "NEE")
-  
-# Calculate GPP
-dGPP<- inner_join(dRe[,c(1:3)], dNEE[,c(1:3)])%>%
-  mutate(GPP = NEE + ER, F_type = "GPP")%>%
-  select(placette, date, GPP, F_type)
-
-# Rename before merge : 
-dRe <- rename(dRe, flux=ER)
-dNEE <- rename(dNEE, flux=NEE)
-dGPP <- rename(dGPP, flux=GPP)
-
-# Merge all flux data
-dflux <- bind_rows(dRe, dNEE, dGPP)
+# Get fluxes data with GPP
+dflux <- read.csv(file.path(outpath, "3F_data.csv"))%>%
+  mutate(date=as.Date(date))
 
 # Retrive temperature profile and put them in long format
 dTP <- svTemperature %>%
@@ -82,12 +56,29 @@ mdl$Q10 <- ifelse(mdl$equation == "exponential", exp(10*mdl$slope) , NA)
 
 
 
+
 # Compute models with all plot pooled -------------------------------------
 mdl_all <- df %>%
   group_by(T_type, F_type) %>%
   do(lmc_calc_all(.$flux, .$T_value))
 # Compute Q10
 mdl_all$Q10 <- ifelse(mdl_all$equation == "exponential", exp(10*mdl_all$slope) , NA)
+
+# 2013
+mdl2013 <- df %>%
+  filter(date < as.Date("2014-01-01"))%>%
+  group_by(T_type, F_type) %>%
+  do(lmc_calc_all(.$flux, .$T_value))%>%
+  mutate(Q10 = ifelse(equation == "exponential", exp(10*slope) , NA), year=2013)
+# 2014
+mdl2014 <- df %>%
+  filter(date < as.Date("2015-01-01") & date >= as.Date("2014-01-01"))%>%
+  group_by(T_type, F_type) %>%
+  do(lmc_calc_all(.$flux, .$T_value))%>%
+  mutate(Q10 = ifelse(equation == "exponential", exp(10*slope) , NA), year=2014)
+
+mdl_pryr <- rbind(mdl2013, mdl2014)
+
 
 # Write the output in a file
 # Models output p7
@@ -96,6 +87,9 @@ write.csv(mdl, filepath_mdl, quote=F, row.names=F)
 # Models output all
 filepath_mdl <- paste0(outpath, "/3F-T_eco_mdlpar.csv")
 write.csv(mdl_all, filepath_mdl, quote=F, row.names=F)
+# Models output all per year
+filepath_mdl <- paste0(outpath, "/3F-T_eco_mdlpar_pryr.csv")
+write.csv(mdl_pryr, filepath_mdl, quote=F, row.names=F)
 # Data compilation
 filepath_flux <- paste0(outpath, "/flux_p7.csv")
 write.csv(df, filepath_flux, quote=F, row.names=F)
