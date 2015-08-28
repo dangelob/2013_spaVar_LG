@@ -1,0 +1,152 @@
+---
+title: "Molinie : relation entre hauteur, surface, biomasse"
+author: "Benoît D'ANGELO"
+date: "12/05/2015"
+output:
+  html_document:
+    fig_height: 7
+    fig_width: 9
+    includes:
+      in_header: ../in_header.html
+    theme: flatly
+    toc: yes
+---
+<h3><a href="veg_toc.html"> Vegetation </a></h3>
+  
+***
+
+```{r loadenv, eval=TRUE, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+library(laguettevarspa)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+dfscan <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/other/datScan.csv")
+
+dfarea <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/other/areaVar.csv")%>%
+  filter(replicat != "calib")
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+
+## Longueur vs Surface
+```{r}
+m <- lm(dfscan$area_mm2~dfscan$longueur_mm)
+summary(m)
+
+par(mar =  c(5.1,5.1,2.1,2.1), cex = 1.5)
+plot(dfscan$area_mm2~dfscan$longueur_mm, xlim=c(0,600),
+     xlab = "longueur de feuilles (mm)", ylab = "surface de feuille (mm²)", 
+     cex.lab=1, cex.axis=1, cex.main=1, cex.sub=1, cex=1)
+legend("topleft", bty="n", legend=paste("R² = ", format(summary(m)$adj.r.squared, digits=2)))
+abline(m, col = "blue")
+```
+
+```{r}
+cor_sechage <- 1.35 # correction liée au séchage
+
+df <- svVegetation %>%
+  filter(specie %in% c("molinia")) %>%
+  filter(!is.na(number))%>%
+  mutate(cover=as.character(cover))%>%
+  mutate(cover = ifelse(cover == "<5", "0", cover))%>%
+  mutate(cover = ifelse(cover == "9999", NA, cover))%>%
+  mutate(cover = as.numeric(cover))%>%
+  mutate(height_tot = height_m*number)%>%
+  mutate(area = (coef(m)[2]*(height_m*10) - coef(m)[1])*cor_sechage)%>% # 10 : conversion cm mm
+  mutate(LAI = area*number)
+
+ggplot(df, aes(x=date, y=LAI))+
+  geom_point(size = 4, shape=21)+
+  facet_wrap(~placette)+
+  theme_bw()
+
+```
+
+***
+
+## Longueur vs Biomasse (masse sèche)
+```{r}
+m2 <- lm(dfscan$longueur_mm~dfscan$Msec_mg)
+summary(m2)
+par(mar =  c(5.1,5.1,2.1,2.1), cex = 1.5)
+plot(dfscan$longueur_mm~dfscan$Msec_mg, 
+     ylab = "longueur de feuilles (mm)", xlab = "biomasse (g)", 
+     cex.lab=1, cex.axis=1, cex.main=1, cex.sub=1, cex=1)
+legend("topleft", bty="n", legend=paste("R² = ", format(summary(m2)$adj.r.squared, digits=2)))
+abline(m2, col = "blue")
+```
+
+## Surface vs Biomasse (masse sèche)
+```{r}
+m3 <- lm(dfscan$area_mm2~dfscan$Msec_mg)
+summary(m3)
+par(mar =  c(5.1,5.1,2.1,2.1), cex = 1.5)
+plot(dfscan$area_mm2~dfscan$Msec_mg, 
+     ylab = "Surface des feuilles (mm)", xlab = "biomasse (g)", 
+     cex.lab=1, cex.axis=1, cex.main=1, cex.sub=1, cex=1)
+legend("topleft", bty="n", legend=paste("R² = ", format(summary(m2)$adj.r.squared, digits=2)))
+abline(m3, col = "blue")
+```
+
+
+## Évolution de la surface avec le temps de séchage  
+
+Entre la 1re et la 2e mesure il s'est écoulé un peu plus de 24h
+```{r, dpi=100, h=6, w=10}
+#  dfarea$replicat <- factor(dfarea$replicat, levels = c(1:10, "calib"))
+
+dfar <- dfarea[order(dfarea$area_mm2, dfarea$idmesure),]
+dfar$idmesure <- as.factor(dfar$idmesure)
+
+ggplot(dfar, aes(x = reorder(replicat, area_mm2), y = area_mm2, fill = as.factor(idmesure)))+
+  geom_histogram(stat="identity", position="dodge")+
+  theme_bw()
+```
+
+```{r, eval=FALSE, dpi=100, h=6, w=10 , echo=F, results = "asis", comment=NA}
+n1 <- nPlot(area_mm2 ~ replicat, group = "idmesure", data = dfarea[which(dfarea$replicat != "calib"),], type = "multiBarChart")
+n1$print("chart1", include_assets = TRUE, cdn = TRUE)
+```
+
+```{r,}
+# Calcul du pourcentage de surface perdue par rapport à la première valeur
+pct <- 100 - (dfarea[which(dfarea$idmesure == 2), "area_mm2"] * 100  / dfarea[which(dfarea$idmesure == 1), "area_mm2"])
+pct2 <- 100 - (dfarea[which(dfarea$idmesure == 3), "area_mm2"] * 100  / dfarea[which(dfarea$idmesure == 1), "area_mm2"])
+df <- data.frame(replicat=1:10, pct=pct, pct2=pct2)
+summary(pct)
+summary(pct2)
+```
+
+```{r, dpi=100, h=2, w=3}
+ggplot(df, aes(y = pct, x = 1))+
+  geom_boxplot()+
+  coord_flip()+
+  theme_bw()
+ggplot(df, aes(y = pct2, x = 1))+
+  geom_boxplot()+
+  coord_flip()+
+  theme_bw()
+```
+
+```{r, dpi=100, h=6, w=10}
+meanlab <- paste0("mean = ", round(mean(pct),1))
+ggplot(df, aes(x = reorder(replicat, pct), y = pct))+
+  geom_histogram(stat="identity", fill = "aquamarine2")+
+  geom_hline(yintercept = mean(pct), linetype = "dashed")+
+  annotate("text", x = 1.2, y = 37, label = meanlab, family = "serif")+
+#   geom_point()+
+  ylim(0,100)+
+  theme_bw()
+```
+
+On a donc une perte de la surface mesurée qui varie de 25 à plus de 40 % en 24 h, avec une moyenne et une médiane légèrement supérieure à 1 tier (pour 10 réplicats).  
+* Déviation standard : `r round(sd(pct),1)`
+* Erreur standard : `r round((sd(pct)/sqrt(NROW(pct))),1)`
+
+
+Après 48h les surfaces sont toujours les même, ont va donc pouvoir corriger nos valeurs de surface.
+TODO : cogiter au nombre de mesure nécessaire pour avoir une correction robuste (pour le moment 10 points)
