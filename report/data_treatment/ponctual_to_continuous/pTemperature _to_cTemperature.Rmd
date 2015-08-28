@@ -46,7 +46,7 @@ df_p <- left_join(svCtrlFact, svTemperature) %>%
 df_c <- wrLGT %>%
   select(timestamp, Ts_1, Ts_2, Ts_3, Ts_4, Ta)%>%
   rename(cT5=Ts_1, cT10=Ts_2, cT20=Ts_3, cT40=Ts_4, cTair=Ta) %>%
-  filter(timestamp >= as.POSIXct("01/03/2013", format = "%d/%m/%Y"))
+  filter(timestamp >= as.POSIXct("01/01/2013", format = "%d/%m/%Y"))
   # mutate(timestamp = as.POSIXct(timestamp, format = "%d/%m/%Y %H:%M"))
   # mutate(timestamp = as.POSIXct(df_c$timestamp, format = "%d/%m/%Y %H:%M"), key_c = as.numeric(df_c$timestamp))
 
