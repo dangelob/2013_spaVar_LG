@@ -1,0 +1,274 @@
+---
+title: "global GPP sat model per years"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
+# Path to the project
+proj_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG"
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+
+```{r load data}
+# Flux data calculated from get3F.R
+T_levels <- c("Tair", "Tsurf", "T5", "T10", "T15", "T20", "T25", "T30", "T40", "T50", "T60", "T70", "T80", "T90", "T100")
+# Flux data
+flux_p7 <- file.path(proj_pth, "data", "processed", "flux_p7.csv")
+df_GPP <- read.csv(flux_p7)%>%
+  filter(F_type == "GPP")%>%
+  mutate(date = as.Date(date),
+         T_type = factor(T_type, levels = T_levels))
+
+Temperature <- svTemperature %>%
+  select(-date)
+
+Ctrl <- svCtrlFact %>%
+  select(ID_camp, placette, PAR_Deb, PAR_Fin, RH_m, WTL)%>%
+  mutate(PAR = rowMeans(.[,3:4], na.rm=T))%>%
+  select(ID_camp, placette, PAR, RH_m, WTL)
+
+# dfveg <- svVegetation %>%
+#   group_by(ID_camp, placette)%>%
+#   filter(specie == "molinia")%>%
+#   mutate(area_m = mol_LtoS(height_m*10),
+#          area = area_m * number)%>%
+#   select(ID_camp, placette, number, area)
+# dfveg$area <- ifelse(dfveg$number == 0, 0, dfveg$area)
+
+dfveg <- svVegetation %>%
+  # group_by(ID_camp, placette)%>%
+  filter(specie == "molinia")%>%
+  mutate(area_m = mol_LtoS(height_m*10),
+         area = area_m * number)%>%
+  mutate(area = area/1000000, LAI = area/0.31, IV = LAI/max(LAI, na.rm=T))%>%
+  select(ID_camp, placette, number, area, LAI, IV)
+# dfveg$area <- ifelse(dfveg$number == 0, 0, dfveg$area)
+
+
+df <- left_join(df_GPP, Temperature, by=c("ID_camp", "placette"))%>%
+  left_join(., Ctrl, by=c("ID_camp", "placette"))%>%
+  left_join(., dfveg, by=c("ID_camp", "placette"))%>%
+  rename(netCO2F = flux)%>%
+  separate(date, c("year", "m", "d"))%>%
+  filter(netCO2F > 0, PAR > 500) # remove value below 0 and light saturation data only
+```
+
+
+```{r functions}
+pGPP_T <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~T25, xlab="température à -25 cm (°C)",ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+pmesmod <- function(X, ttl){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~predman, ylim=c(0,20), xlim=c(0,20),xlab=expression(paste("PBB modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")), main=ttl, data=X)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
+}
+
+```
+
+## GPP representation
+
+According to <a href="../../relation_flux_T/GPP_T.html"> this document </a> the best ER representation with temperature at global scale is found by using an exponential model with -25 cm depth temperature.
+
+# Temperature, ER~aexp-((T25-b)/c)
+
+
+```{r calc mdl}
+# Linear version ------------------------
+
+# Non linear version --------------------
+## 2013 
+df_mJune2013 <- df%>%
+  filter(year == "2013")
+
+mJune2013 <- nls(netCO2F ~ a * exp(-((T15-b)/c)^2), data=df_mJune2013, start=list(a=10, b=10, c=10), na.action = na.exclude)
+
+a2013 <- coef(mJune2013)[1]
+b2013 <- coef(mJune2013)[2]
+c2013 <- coef(mJune2013)[3]
+
+df_mJune2013$resi <- residuals(mJune2013)
+df_mJune2013$pred <- predict(mJune2013)
+# df_mJune2013$predman <- a*exp(b*df_mJune2013$T25)
+df_mJune2013$predman <- a2013 * exp(-((df_mJune2013$T15-b2013)/c2013)^2)
+
+rmse_GPP_T15June_2013 <- sqrt(mean((df_mJune2013$predman-df_mJune2013$netCO2F)^2,na.rm=TRUE))
+
+## 2014 
+df_mJune2014 <- df%>%
+  filter(year == "2014")
+
+mJune2014 <- nls(netCO2F ~ a * exp(-((T15-b)/c)^2), data=df_mJune2014, start=list(a=10, b=10, c=10), na.action = na.exclude)
+
+a2014 <- coef(mJune2014)[1]
+b2014 <- coef(mJune2014)[2]
+c2014 <- coef(mJune2014)[3]
+
+df_mJune2014$resi <- residuals(mJune2014)
+df_mJune2014$pred <- predict(mJune2014)
+# df_mJune2014$predman <- a*exp(b*df_mJune2014$T25)
+df_mJune2014$predman <- a2014 * exp(-((df_mJune2014$T15-b2014)/c2014)^2)
+
+rmse_GPP_T15June_2014 <- sqrt(mean((df_mJune2014$predman-df_mJune2014$netCO2F)^2,na.rm=TRUE))
+```
+
+
+```{r, fig.height=12}
+par(mfrow=c(2,2))
+pGPP_T(df_mJune2013)
+curve(a2013*exp(-((x-b2013)/c2013)^2), add=T, col="blue")
+pGPP_T(df_mJune2014)
+curve(a2014*exp(-((x-b2014)/c2014)^2), add=T, col="blue")
+pmesmod(df_mJune2013, "2013")
+pmesmod(df_mJune2014, "2014")
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+#### 2013
+ER = `r a2013` * exp(-((T15 - `r b2013`)/ `r c2013`)^2)
+
+#### 2014
+ER = `r a2014` * exp(-((T15 - `r b2014`)/ `r c2014`)^2)
+
+### diagnostic values
+
+####2013
+
+rmse = `r rmse_GPP_T15June_2013` (nls)
+
+aic = `r AIC(mJune2013)` (nls)
+
+***
+####2014
+
+rmse = `r rmse_GPP_T15June_2014` (nls)
+
+aic = `r AIC(mJune2014)` (nls)
+
+```{r exprt_fig, error=FALSE, results="hide"}
+# 2013
+cairo_pdf(file.path(savpth, "GPP_T15June_ecosyt_2013.pdf"), width=6.5, height=5)
+pGPP_T(df_mJune2013)
+curve(a2013*exp(-((x-b2013)/c2013)^2), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_T15June_ecosyt_mesmod_2013.pdf"), width=5, height=5)
+pmesmod(df_mJune2013, "2013")
+dev.off()
+
+# 2014
+cairo_pdf(file.path(savpth, "GPP_T15June_ecosyt_2014.pdf"), width=6.5, height=5)
+pGPP_T(df_mJune2014)
+curve(a2014*exp(-((x-b2014)/c2014)^2), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_T15June_ecosyt_mesmod_2014.pdf"), width=5, height=5)
+pmesmod(df_mJune2014, "2014")
+dev.off()
+```
+
+
+
+# Temperature, pseudo IV, ER~a * IV * exp-((T25-b)/c)
+
+
+```{r calc mdl + IV}
+# Linear version ------------------------
+
+# Non linear version --------------------
+## 2014 
+df_mJuneRH2014 <- df%>%
+  filter(year == "2014")
+
+
+# mJuneRH2014 <- nls(netCO2F ~ a * area + b, data=df_mJuneRH2014, start=list(a=12, b=20), na.action = na.exclude,trace = T)
+
+# mJuneRH2014 <- nls(netCO2F ~ a * area + b, data=df_mJuneRH20142014, start=list(a=12, b=20), na.action = na.exclude,trace = T)
+st1 <- expand.grid(a = seq(-100, 100, len = 50), 
+	b = seq(-100, 100, len = 50), c = seq(-100, 100, len = 50))
+
+mJuneRH2014 <- nls2(netCO2F ~ a * area * exp(-((T15-b)/c)^2), data=df_mJuneRH2014, start=st1, 
+                    # start=list(a=19, b=35, c=23), 
+                    na.action = na.exclude, trace = T, nls.control(tol=0.1, maxiter = 1000), algorithm = "brute-force")
+
+mJuneRH2014 <- nls(netCO2F ~ a * area * exp(-((T15-b)/c)^2), data=df_mJuneRH2014, start=list(a=18, b=31, c=23), na.action = na.exclude, trace = T, nls.control(maxiter = 1000))
+
+
+a <- coef(mJuneRH2014)[1]
+b <- coef(mJuneRH2014)[2]
+c <- coef(mJuneRH2014)[3]
+
+df_mJuneRH2014$resi <- residuals(mJuneRH2014)
+df_mJuneRH2014$pred <- predict(mJuneRH2014)
+# df_mJuneRH2014$predman <- a*exp(b*df_mJuneRH2014$T25)
+df_mJuneRH2014$predman <- a * df_mJuneRH2014$area * exp(-((df_mJuneRH2014$T15-b)/c)^2)
+
+rmse_GPP_T15IVJune2014 <- sqrt(mean((df_mJuneRH2014$predman-df_mJuneRH2014$netCO2F)^2,na.rm=TRUE))
+```
+
+
+```{r, fig.height=6}
+par(mfrow=c(1,2))
+pGPP_T(df_mJuneRH2014)
+# curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+pmesmod(df_mJuneRH2014, "June")
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+ER = `r a` * area * exp(-((T15 - `r b`)/ `r c`)^2)
+
+### diagnostic values
+
+rmse = `r rmse_GPP_T15IVJune2014` (nls)
+
+aic = `r AIC(mJuneRH2014)` (nls)
+
+```{r, error=FALSE, results="hide"}
+cairo_pdf(file.path(savpth, "GPP_T15RHJune_ecosyt_2014.pdf"), width=6.5, height=5)
+pGPP_T(df_mJuneRH2014)
+# curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_T15RHJune_ecosyt_mesmod_2014.pdf"), width=5, height=5)
+pmesmod(df_mJuneRH2014, "June")
+dev.off()
+```
+
+
+

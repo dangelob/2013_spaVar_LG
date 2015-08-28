@@ -1,0 +1,817 @@
+
+---
+title: "Interpolation annuelle"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/interpolation"
+# savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ENE"
+# outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/mdl_ecosyst"
+# Path to data output
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+```{r load_data}
+# Récupérer données interpolée
+cT2 <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cTprofile_all.csv")%>%
+  select(timestamp, Tair, T5)%>%
+  rename(cTair = Tair, cT5 = T5)
+
+cT <- wrLGT %>%
+  select(timestamp, Ta, Ts_1)%>%
+  filter(timestamp >= as.POSIXct("01/01/2013", format = "%d/%m/%Y"))%>%
+  rename(Tair=Ta, T5=Ts_1)%>%
+  mutate(hour = cut(timestamp, breaks="hours"))%>% # daily mean
+  # mutate(day = cut(timestamp, breaks="days"))%>% # daily mean
+  select(-timestamp)%>%
+  group_by(hour)%>%
+  # group_by(day)%>%
+  summarise_each(funs(mean))%>%
+  mutate(timestamp = as.POSIXct(hour, format="%Y-%m-%d %H:%M:%S"))%>%
+  # mutate(timestamp = as.POSIXct(day, format="%Y-%m-%d"))%>%
+  select(-hour)%>%
+  # select(-day)%>%
+  mutate(timestamp = as.factor(timestamp))
+
+cT <- merge(cT, cT2)%>% # Tair T5 station
+  rename(stTair = Tair, stT5 = T5)%>%
+  rename(Tair = cTair, T5 = cT5) # Tair T5 interpolé à partir mesures
+  
+# plot(cT$Tair~cT$stTair)
+# # plot(tt$T5~tt$cT5)
+# abline(a=0, b=1, col="red")
+
+
+# ENE : PAR
+cPAR <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cPAR_all_hour.csv")
+# Veg H
+cVEG <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cVeg_all_hour.csv")
+# Soil water content
+cRH <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cRH_all_hour.csv")
+
+df_p <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/3F_data.csv") %>%
+  spread(F_type, flux)%>%
+  group_by(ID_camp)%>%
+  summarise(date=min(as.Date(date)), 
+            ER_sd=sd(ER,na.rm=T), 
+            ER=mean(ER,na.rm=T), 
+            GPP_sd=sd(GPP,na.rm=T), 
+            GPP=mean(GPP,na.rm=T), 
+            NEE_sd=sd(NEE, na.rm=T),
+            NEE=mean(NEE, na.rm=T))%>%
+  mutate(date = as.POSIXct(date))%>%
+  filter(ID_camp < 20)
+
+```
+
+```{r load_mdl_par}
+ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
+GPPpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPP_mdlpar.csv")
+GPPsatpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPPsat_mdlpar.csv")
+
+lERpar <- ERpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+
+lGPPpar <- GPPpar %>%
+  gather(par, value, 2)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+
+lGPPsatpar <- GPPsatpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+```
+
+```{r}
+get_pER <- function(name="Tair", df=df){
+  parER <- lERpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parER) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés_n")
+  }
+  
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("timestamp", names[1], names[2])]
+  }else{
+    dft <- df[,c("timestamp", name)]
+  }
+  
+  # Calcul pER en fonction du nb de par
+  pER <- c()
+  if(NROW(parER) == 2){
+    a <- parER$val[1]
+    b <- parER$val[2]
+    pER <- a*exp(b*dft[,2])
+  }else if(NROW(parER) == 3){
+    a <- parER$val[1]
+    b <- parER$val[2]
+    c <- parER$val[3]
+    pER <- (a*dft[,3]+c)*exp(b*dft[,2])
+  }else{
+    cat("nb de par > 3\n")
+  }
+  return(pER)
+  # return(as.vector(pER[,1]))
+}
+
+get_pGPP <- function(name="Tair", df=df){
+  parGPPsat <- lGPPsatpar %>%
+    filter(mdl == name)
+  parGPP <- lGPPpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parGPPsat) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés \n")
+  }
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("timestamp", "PAR", names[1], names[2])]
+  }else{
+    dft <- df[,c("timestamp", "PAR", name)]
+  }
+  # Calcul pER en fonction du nb de par
+  if(NCOL(dft) == 3){
+    a <- parGPPsat$val[1]
+    b <- parGPPsat$val[2]
+    c <- parGPPsat$val[3]
+    X1 <- dft[,3]
+    pGPPsat <- a * exp(-((X1-b)/c)^2)
+  }else if(NCOL(dft) == 4){
+    a <- parGPPsat$val[1]
+    b <- parGPPsat$val[2]
+    c <- parGPPsat$val[3]
+    X1 <- dft[,3]
+    X2 <- dft[,4]
+    pGPPsat <- (a*X2) * exp(-((X1-b)/c)^2)
+  }else{
+    cat("nb de par > 3\n")
+  }
+  # pGPPsat <- as.vector(pGPPsat[,1])
+  i <- parGPP$val[1]
+  pGPP = (i*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*i))
+  return(pGPP)
+}
+
+# 
+# mdl_indic <- function(Y, pY, mdl){
+#   mdl <- unique(mdl)
+#   if(grepl("_", mdl)){
+#     p <- 2
+#   }else{ p <- 1}
+#   # R2
+#   devmean <- Y-(mean(Y, na.rm=TRUE)) # deviation à la moyenne
+#   SSres <-sum((Y-pY)^2) # Total sum of squares
+#   SStot <- sum(devmean^2) # Residual sum of squares
+#   # 2 way to calculate
+#   R2 <- (SStot-SSres)/SStot 
+#   # R2 <- 1 - SSres/SStot
+#   # Adjusted R2
+#   N <- NROW(devmean) # sample size
+#   # p <- 1 # number of predictors
+#   R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+#   # RMSE
+#   rmse_mdl <- sqrt(mean((pY-Y)^2,na.rm=TRUE))
+#   nrmse_mdl <- 100*rmse_mdl/mean(Y,na.rm=TRUE)
+#   # Collect usefull param
+#   df <- data.frame(R2=R2,
+#                    aR2=R2a,
+#                    rmse=rmse_mdl,
+#                    nrmse=nrmse_mdl)
+#   return(df)
+# }
+
+
+```
+
+
+```{r}
+BdC <- cT %>%
+  inner_join(.,cPAR)%>%
+  # inner_join(.,cVEG)%>%
+  left_join(.,cVEG)%>%
+  left_join(.,cRH)%>%
+  select(timestamp, PAR, Tair, T5, IVcov, H)%>%
+  mutate(timestamp = as.POSIXct(timestamp, format="%Y-%m-%d %H:%M:%S"))
+
+# Liste des modèles à tester
+GPP_par <- c("Tair", "T5", "Tair_IVcov", "T5_IVcov")
+# GPP_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_IVcov")
+ER_par <- c("Tair", "T5", "Tair_IVcov", "T5_IVcov")
+# ER_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_H", "T5_IVcov")
+# Calcul prediction NEE
+# Si NEE GPP et ER dans la mm boucle : doublons pour ER et GPP
+predNEE <- data.frame()
+predGPP <- data.frame()
+predER <- data.frame()
+for (i in GPP_par){
+    pGPP <- get_pGPP(i, BdC)
+    tpGPP <- data.frame(timestamp=BdC$timestamp, pGPP=pGPP, mdl=i)
+    predGPP <- rbind(predGPP,tpGPP)
+  for (j in ER_par){
+    pER <- get_pER(j, BdC)
+    pNEE <- pGPP - pER
+    mdl_name <- paste0(i, "-", j)
+    tpNEE <- data.frame(timestamp=BdC$timestamp, pNEE=pNEE, mdl=mdl_name)
+    predNEE <- rbind(predNEE,tpNEE)
+  }
+}
+for (j in ER_par){
+    pER <- get_pER(j, BdC)
+    tpER <- data.frame(timestamp=BdC$timestamp, pER=pER, mdl=j)
+    predER <- rbind(predER,tpER)
+}
+
+predER$timestamp <- as.POSIXct(predER$timestamp, format="%Y-%m-%d %H:%M:%S")
+predGPP$timestamp <- as.POSIXct(predGPP$timestamp, format="%Y-%m-%d %H:%M:%S")
+predNEE$timestamp <- as.POSIXct(predNEE$timestamp, format="%Y-%m-%d %H:%M:%S")
+
+```
+
+
+```{r}
+# Convertion fact from umol.m2.s1 to gC.m2.yr
+cfA <- (3600*24*365)*1e-6*12
+
+# Resumé ER
+summER <- predER %>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(mdl, yr)%>%
+  summarise(pER = mean(pER, na.rm=T))%>%
+  mutate(pER_gC = pER*cfA)
+
+summER_yr <- summER %>%
+  filter(yr %in% c(2013, 2014))%>%
+  select(mdl, pER_gC, yr)%>%
+  spread(yr, pER_gC)%>%
+  mutate(all =(`2013`+`2014`)/2)
+
+as.data.frame(summER_yr)
+
+# Resumé GPP
+summGPP <- predGPP %>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(mdl, yr)%>%
+  summarise(pGPP = mean(pGPP, na.rm=T))%>%
+  mutate(pGPP_gC = pGPP*cfA)
+
+summGPP_yr <- summGPP %>%
+  filter(yr %in% c(2013, 2014))%>%
+  select(mdl, pGPP_gC, yr)%>%
+  spread(yr, pGPP_gC)%>%
+  mutate(all =(`2013`+`2014`)/2)
+
+as.data.frame(summGPP_yr)
+
+# Resumé NEE
+summNEE <- predNEE %>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(mdl, yr)%>%
+  summarise(pNEE = mean(pNEE, na.rm=T))%>%
+  mutate(pNEE_gC = pNEE*cfA)
+
+
+summNEE_yr <- summNEE %>%
+  filter(yr %in% c(2013, 2014))%>%
+  select(mdl, pNEE_gC, yr)%>%
+  spread(yr, pNEE_gC)%>%
+  mutate(all =(`2013`+`2014`)/2)
+
+as.data.frame(summNEE_yr)
+
+as.data.frame(filter(summNEE_yr, mdl %in% c("Tair-Tair",
+                                            "Tair-Tair_IVcov",
+                                            "Tair_IVcov-Tair", 
+                                            "Tair_IVcov-Tair_IVcov")))
+
+mean(summNEE_yr$`2013`, na.rm=T)
+mean(summNEE_yr$`2014`, na.rm=T)
+```
+
+# Interpolation facteur contrôle
+
+```{r, eval=FALSE}
+ggplot(BdC, aes(x=timestamp, y=T5))+
+  geom_line()+
+  scale_x_datetime(breaks=date_breaks("month"), labels = date_format("%b"))+
+  theme_bw()
+ggplot(BdC, aes(x=timestamp, y=Tair))+
+  geom_line()+
+  scale_x_datetime(breaks=date_breaks("month"), labels = date_format("%b"))+
+  theme_bw()
+
+ggplot(BdC, aes(x=timestamp, y=IVcov))+
+  geom_line()+
+  theme_bw()
+
+ggplot(BdC, aes(x=timestamp, y=RH))+
+  geom_line()+
+  theme_bw()
+
+test <- BdC%>%
+  select(timestamp, PAR)
+library(xts)
+test_xts <- as.xts(test$PAR, test$timestamp)
+daily_mean <- apply.daily(test_xts, mean)
+monthly_mean <- apply.monthly(test_xts, mean)
+
+
+plot(daily_mean)
+plot(monthly_mean)
+plot(daily_mean[1:200,])
+
+test_xts_filtrer <- test_xts[!test_xts %in% test_xts["T20:00/T05:00"]]
+daily_mean_fil <- apply.daily(test_xts_filtrer, mean)
+plot(daily_mean_fil)
+plot(daily_mean_fil[1:200,])
+
+
+```
+
+
+# Bilan interpolé
+
+
+## ENE modélisée : GPPsat (Tair) ; ER (Tair) ; 
+
+```{r, eval=F}
+dat <- filter(predNEE, mdl == "Tair-Tair")
+
+p1 <- ggplot(df_p, aes(x=date, y=NEE))+
+  geom_line(data = dat, aes(x=timestamp, y=pNEE))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=NEE-NEE_sd, ymax=NEE+NEE_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+# ggsave("ENE_BdCitp_Ta_Ta.pdf", plot=p1, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+## ENE modélisée : GPPsat (T5) ; ER (T5) ; 
+
+```{r, eval=T}
+dat <- filter(predNEE, mdl == "T5-T5")
+
+p1 <- ggplot(df_p, aes(x=date, y=NEE))+
+  geom_line(data = dat, aes(x=timestamp, y=pNEE))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=NEE-NEE_sd, ymax=NEE+NEE_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("ENE_BdCitp_T5_T5.pdf", plot=p1, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+## ENE modélisée :  GPPsat (Ta + IVcov) ; ER (Ta + IVcov) ;
+
+```{r, eval=T}
+dat <- filter(predNEE, mdl == "Tair_IVcov-Tair_IVcov")
+
+p3 <- ggplot(df_p, aes(x=date, y=NEE))+
+  geom_line(data = dat, aes(x=timestamp, y=pNEE))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=NEE-NEE_sd, ymax=NEE+NEE_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="2013 - 2014")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  theme_bw()+
+  theme(#axis.title=element_text(size=16), # DIAPO
+#         strip.text.x = element_text(size = 14), #DIAPO
+#         axis.text=element_text(size=14), # DIAPO
+#         axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p3
+ggsave("ENE_BdCitp_TairIVcov_TairIVcov.pdf", plot=p3, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## ENE modélisée :  GPPsat (Ta + IVcov) ; ER (Ta) ;
+
+```{r, eval=T}
+dat <- filter(predNEE, mdl == "Tair_IVcov-Tair")
+
+p3 <- ggplot(df_p, aes(x=date, y=NEE))+
+  geom_line(data = dat, aes(x=timestamp, y=pNEE))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=NEE-NEE_sd, ymax=NEE+NEE_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p3
+# ggsave("ENE_BdCitp_TaIVcov_Ta.pdf", plot=p3, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+## ENE modélisée :  GPPsat (Ta + IVcov) ; ER (T5) ;
+
+```{r, eval=T}
+dat <- filter(predNEE, mdl == "Tair_IVcov-T5")
+
+p3 <- ggplot(df_p, aes(x=date, y=NEE))+
+  geom_line(data = dat, aes(x=timestamp, y=pNEE))+
+  geom_point(color="blue", size=3)+
+geom_linerange(data = df_p, aes(x=date, ymin=NEE-NEE_sd, ymax=NEE+NEE_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="2013 - 2014")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  theme_bw()+
+  theme(#axis.title=element_text(size=16), # DIAPO
+#         strip.text.x = element_text(size = 14), #DIAPO
+#         axis.text=element_text(size=14), # DIAPO
+#         axis.text.x=element_text(angle = 30, hjust=1),
+#         axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p3
+ggsave("ENE_BdCitp_TairIVcov_T5.pdf", plot=p3, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## ENE modélisée :  GPPsat (T5 + IVcov) ; ER (T5) ;
+
+```{r, eval=T}
+dat <- filter(predNEE, mdl == "T5_IVcov-T5")
+
+p3 <- ggplot(df_p, aes(x=date, y=NEE))+
+  geom_line(data = dat, aes(x=timestamp, y=pNEE))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=NEE-NEE_sd, ymax=NEE+NEE_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p3
+ggsave("ENE_BdCitp_T5IVcov_T5.pdf", plot=p3, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+## ENE modélisée :  GPPsat (T5) ; ER (T5RH) ;
+
+```{r, eval=F}
+p3 <- ggplot(df_p, aes(x=date, y=NEE))+
+  geom_line(data = BdC_plt, aes(x=timestamp, y=pNEE_T5_T5RH))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=NEE-NEE_sd, ymax=NEE+NEE_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p3
+# ggsave("ENE_BdCitp_T5_T5RH.pdf", plot=p3, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+## ENE modélisée :  GPPsat (T5IVcov) ; ER (T5RH) ;
+
+```{r, eval=F}
+p3 <- ggplot(df_p, aes(x=date, y=NEE))+
+  geom_line(data = BdC_plt, aes(x=timestamp, y=pNEE_T5IVcov_T5RH))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=NEE-NEE_sd, ymax=NEE+NEE_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p3
+# ggsave("ENE_BdCitp_T5IVcov_T5RH.pdf", plot=p3, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+```{r, eval=F}
+# Convertion fact from umol.m2.s1 to gC.m2.yr
+t <- (3600*24*365)*1e-6*12
+# cfA <- 6.31152
+cfA <- t
+
+summ <- BdC_plt %>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(yr)%>%
+  summarise(#pNEE_TaIVcov_id = mean(pNEE_TaIVcov_id, na.rm=TRUE),
+            pNEE_TaIVcov_Ta = mean(pNEE_TaIVcov_Ta, na.rm=TRUE),
+            pNEE_TaIVcov_T5 = mean(pNEE_TaIVcov_T5, na.rm = TRUE),
+            pNEE_T5_T5 = mean(pNEE_T5_T5, na.rm = TRUE),
+            pNEE_T5IVcov_T5 = mean(pNEE_T5IVcov_T5, na.rm = TRUE)
+            )%>%
+  mutate(#gC_TaIVcov_id=pNEE_TaIVcov_id*cfA,
+         gC_TaIVcov_Ta=pNEE_TaIVcov_Ta*cfA,
+         gC_TaIVcov_T5=pNEE_TaIVcov_T5*cfA,
+         gC_T5_T5=pNEE_T5_T5*cfA,
+         gC_T5IVcov_T5=pNEE_T5IVcov_T5*cfA
+         )
+
+# summER <- BdC_plt %>%
+#   mutate(timestamp = as.character(timestamp)) %>%
+#   separate(timestamp, c("yr", "m", "d"), sep="-")%>%
+#   group_by(yr)%>%
+#   summarise(pER_Ta = mean(pER_Ta, na.rm=TRUE),
+#             pER_T5 = mean(pER_T5, na.rm = TRUE)
+#             )%>%
+#   mutate(gC_pER_Ta=pER_Ta*cfA,
+#          gC_pER_T5=pER_T5*cfA
+#          )
+  
+
+```
+
+
+### stored C per year
+
+```{r, eval=F}
+select(summ, gC_TaIVcov_Ta, gC_T5IVcov_T5, gC_TaIVcov_T5, gC_T5_T5)#, gC_TaIVcov_id, gC_TaIVcov_T5RH, gC_T5_T5, gC_T5_T5RH, gC_T5IVcov_T5, gC_T5IVcov_T5RH)
+```
+
+## ER modélisée : Tair
+
+```{r, eval=T}
+dat <- filter(predER, mdl == "Tair")
+
+p1 <- ggplot(df_p, aes(x=date, y=ER))+
+  geom_line(data = dat, aes(x=timestamp, y=pER))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=ER-ER_sd, ymax=ER+ER_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+# ggsave("ER_BdCitp_Ta.pdf", plot=p1, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+## ER modélisée : Tair + IVcov
+
+```{r, eval=T}
+dat <- filter(predER, mdl == "Tair_IVcov")
+
+p1 <- ggplot(df_p, aes(x=date, y=ER))+
+  geom_line(data = dat, aes(x=timestamp, y=pER))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=ER-ER_sd, ymax=ER+ER_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="2013 - 2014")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  theme_bw()+
+  theme(#axis.title=element_text(size=16), # DIAPO
+#         strip.text.x = element_text(size = 14), #DIAPO
+#         axis.text=element_text(size=14), # DIAPO
+#         axis.text.x=element_text(angle = 30, hjust=1),
+#         axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("ER_BdCitp_TairIVcov.pdf", plot=p1, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## ER modélisée : T5
+
+```{r, eval=T}
+dat <- filter(predER, mdl == "T5")
+
+p1 <- ggplot(df_p, aes(x=date, y=ER))+
+  geom_line(data = dat, aes(x=timestamp, y=pER))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=ER-ER_sd, ymax=ER+ER_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="2013 - 2014")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  theme_bw()+
+   theme(#axis.title=element_text(size=16), # DIAPO
+#         strip.text.x = element_text(size = 14), #DIAPO
+#         axis.text=element_text(size=14), # DIAPO
+#         axis.text.x=element_text(angle = 30, hjust=1),
+#         axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("ER_BdCitp_T5.pdf", plot=p1, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## ER modélisée : T5 RH
+
+```{r, eval=F}
+p1 <- ggplot(df_p, aes(x=date, y=ER))+
+  geom_line(data = BdC_plt, aes(x=timestamp, y=pER_T5RH))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=ER-ER_sd, ymax=ER+ER_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+# ggsave("ER_BdCitp_T5RH.pdf", plot=p1, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+
+
+## GPP modélisée : Tair
+
+```{r, eval=T}
+dat <- filter(predGPP, mdl == "Tair")
+
+p1 <- ggplot(df_p, aes(x=date, y=GPP))+
+  geom_line(data = dat, aes(x=timestamp, y=pGPP))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=GPP-GPP_sd, ymax=GPP+GPP_sd), color="blue")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  labs(y=expression(paste("GPP modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="2013 - 2014")+
+  theme_bw()+
+  theme(#axis.title=element_text(size=16), # DIAPO
+        # strip.text.x = element_text(size = 14), #DIAPO
+        # axis.text=element_text(size=14), # DIAPO
+        # axis.text.x=element_text(angle = 30, hjust=1),
+        # axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("GPP_BdCitp_Tair.pdf", plot=p1, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## GPP modélisée : T5
+
+```{r, eval=T}
+dat <- filter(predGPP, mdl == "T5")
+
+p1 <- ggplot(df_p, aes(x=date, y=GPP))+
+  geom_line(data = dat, aes(x=timestamp, y=pGPP))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=GPP-GPP_sd, ymax=GPP+GPP_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("GPP_BdCitp_T5.pdf", plot=p1, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+## GPP modélisée : Tair IVcov
+
+```{r, eval=T}
+dat <- filter(predGPP, mdl == "Tair_IVcov")
+
+p1 <- ggplot(df_p, aes(x=date, y=GPP))+
+  geom_line(data = dat, aes(x=timestamp, y=pGPP))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=GPP-GPP_sd, ymax=GPP+GPP_sd), color="blue")+
+  labs(y=expression(paste("GPP modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  theme_bw()+
+  theme(#axis.title=element_text(size=16), # DIAPO
+#         strip.text.x = element_text(size = 14), #DIAPO
+#         axis.text=element_text(size=14), # DIAPO
+#         axis.text.x=element_text(angle = 30, hjust=1),
+#         axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("GPP_BdCitp_TairIVcov.pdf", plot=p1, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+
+## GPP modélisée : T5 IVcov
+
+```{r, eval=T}
+dat <- filter(predGPP, mdl == "T5_IVcov")
+
+
+p1 <- ggplot(df_p, aes(x=date, y=GPP))+
+  geom_line(data = dat, aes(x=timestamp, y=pGPP))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=GPP-GPP_sd, ymax=GPP+GPP_sd), color="blue")+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("GPP_BdCitp_T5IVcov.pdf", plot=p1, path=savpth, width=12, height=8, cairo_pdf)
+```

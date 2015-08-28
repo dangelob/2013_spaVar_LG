@@ -1,0 +1,486 @@
+
+---
+title: "Validation du modèle"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(carbiodiv)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 200)
+```
+
+```{r load_mdl_par}
+ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
+GPPpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPP_mdlpar.csv")
+GPPsatpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPPsat_mdlpar.csv")
+
+lERpar <- ERpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+
+lGPPpar <- GPPpar %>%
+  gather(par, value, 2)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+
+lGPPsatpar <- GPPsatpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+```
+
+
+```{r}
+get_pER <- function(name="Tair", df=df){
+  parER <- lERpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parER) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés_n")
+  }
+  
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("ER", names[1], names[2])]
+  }else{
+    dft <- df[,c("ER", name)]
+  }
+  
+  # Calcul pER en fonction du nb de par
+  pER <- c()
+  if(NROW(parER) == 2){
+    a <- parER$val[1]
+    b <- parER$val[2]
+    pER <- a*exp(b*dft[,2])
+  }else if(NROW(parER) == 3){
+    a <- parER$val[1]
+    b <- parER$val[2]
+    c <- parER$val[3]
+    pER <- (a*dft[,3]+c)*exp(b*dft[,2])
+  }else{
+    cat("nb de par > 3\n")
+  }
+  return(as.vector(pER[,1]))
+}
+
+get_pGPP <- function(name="Tair", df=df){
+  parGPPsat <- lGPPsatpar %>%
+    filter(mdl == name)
+  parGPP <- lGPPpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parGPPsat) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés \n")
+  }
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("GPP", "PAR", names[1], names[2])]
+  }else{
+    dft <- df[,c("GPP", "PAR", name)]
+  }
+  # Calcul pER en fonction du nb de par
+  if(NCOL(dft) == 3){
+    a <- parGPPsat$val[1]
+    b <- parGPPsat$val[2]
+    c <- parGPPsat$val[3]
+    X1 <- dft[,3]
+    pGPPsat <- a * exp(-((X1-b)/c)^2)
+  }else if(NCOL(dft) == 4){
+    a <- parGPPsat$val[1]
+    b <- parGPPsat$val[2]
+    c <- parGPPsat$val[3]
+    X1 <- dft[,3]
+    X2 <- dft[,4]
+    pGPPsat <- (a*X2) * exp(-((X1-b)/c)^2)
+  }else{
+    cat("nb de par > 3\n")
+  }
+  pGPPsat <- as.vector(pGPPsat[,1])
+  i <- parGPP$val[1]
+  pGPP = (i*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*i))
+  return(pGPP)
+}
+
+
+mdl_indic <- function(Y, pY, mdl){
+  mdl <- unique(mdl)
+  if(grepl("_", mdl)){
+    p <- 2
+  }else{ p <- 1}
+  # R2
+  devmean <- Y-(mean(Y, na.rm=TRUE)) # deviation à la moyenne
+  SSres <-sum((Y-pY)^2) # Total sum of squares
+  SStot <- sum(devmean^2) # Residual sum of squares
+  # 2 way to calculate
+  R2 <- (SStot-SSres)/SStot 
+  # R2 <- 1 - SSres/SStot
+  # Adjusted R2
+  N <- NROW(devmean) # sample size
+  # p <- 1 # number of predictors
+  R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+  # RMSE
+  rmse_mdl <- sqrt(mean((pY-Y)^2,na.rm=TRUE))
+  nrmse_mdl <- 100*rmse_mdl/mean(Y,na.rm=TRUE)
+  # Collect usefull param
+  df <- data.frame(R2=R2,
+                   aR2=R2a,
+                   rmse=rmse_mdl,
+                   nrmse=nrmse_mdl)
+  return(df)
+}
+
+```
+
+
+```{r load_data}
+# Données flux
+df3F <- cdNetFlux %>%
+  filter(treatment == "C")%>%
+  select(campaign, cycle_no, treatment, localisation, replicate, netCO2F, type)%>%
+  group_by(campaign, cycle_no, treatment, localisation, replicate)%>%
+  spread(type, netCO2F)%>%
+  rename(ER=Re)%>%
+  mutate(GPP = NEE + ER)%>%
+  # group_by(campaign, cycle_no, localisation)%>%
+  group_by(campaign,  localisation)%>%
+  # group_by(campaign, localisation, replicate)%>%
+  summarise(NEE = mean(NEE, na.rm=T), ER = mean(ER, na.rm=T), GPP = mean(GPP, na.rm=T))
+
+# Donnée PAR 
+dfpar <- cdNetFlux %>%
+  select(campaign, cycle_no, treatment, localisation, replicate, PAR_deb, PAR_fin)%>%
+  gather("PAR_type", "PAR_val", 6:7)%>%
+  group_by(campaign, cycle_no, treatment, localisation, replicate)%>%
+  summarise(PAR=mean(PAR_val, na.rm=T))%>%
+  ungroup()%>%
+  # group_by(campaign, cycle_no, localisation)%>%
+  group_by(campaign,  localisation)%>%
+  # group_by(campaign, localisation, replicate)%>%
+  summarise(PAR = mean(PAR, na.rm=T))
+  
+# Données végétation (a mettre dans pkg carbiodiv)
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cdIVcov.csv")%>%
+  filter(campaign > 1)%>%
+  filter(treatment == "C")%>%
+  # select(campaign, localisation, IVcov)%>%
+  mutate(replicate=as.factor(replicate))%>%
+  group_by(campaign, localisation)%>%
+  # group_by(campaign, localisation, replicate)%>%
+  summarise(IVcov = mean(IVcov, na.rm=T), H = mean(H, na.rm=T))
+
+# Création data pour campagne 1
+crea <- dfveg %>%
+  ungroup()%>%
+  filter(campaign == 2)%>%
+  mutate(campaign = 1)
+dfveg <- rbind(crea, dfveg)
+
+
+# Données météo
+dfwr1 <- wrLGT %>% # Données station
+  select(timestamp, Ta, Ts_1)%>%
+  rename(Tair=Ta, T5=Ts_1)%>%
+  filter(timestamp >= as.POSIXct("01/01/2014", format = "%d/%m/%Y"))
+dfwr2 <- cdNetFlux %>% # Tableau type données carbiodiv
+  select(timestamp, campaign, cycle_no, treatment, localisation, replicate)%>%
+  mutate(timestamp = as.POSIXct(round(timestamp, "hours")))
+dfwr <- left_join(dfwr2, dfwr1)%>% # Fusion des 2
+  # group_by(campaign, cycle_no, localisation)%>%
+  group_by(campaign, localisation)%>%
+  # group_by(campaign, localisation, replicate)%>%
+  summarise(Tair = mean(Tair, na.rm=T), T5 = mean(T5, na.rm=T))
+  
+df <- df3F %>%
+  left_join(., dfpar)%>%
+  # left_join(., dfveg)%>%
+  left_join(., dfveg, by=c("campaign", "localisation"))%>%
+  left_join(., dfwr)%>%
+  ungroup()%>%
+  filter(campaign > 1)
+```
+
+```{r, compil_data}
+dfFLUX <- df %>%
+  select(NEE, GPP, ER, PAR, localisation, Tair, T5, IVcov, H)
+# Liste des modèles à tester
+GPP_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_IVcov")
+ER_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_H", "T5_IVcov")
+# Calcul prediction NEE
+# Si NEE GPP et ER dans la mm boucle : doublons pour ER et GPP
+predNEE <- data.frame()
+predGPP <- data.frame()
+predER <- data.frame()
+for (i in GPP_par){
+    pGPP <- get_pGPP(i, dfFLUX)
+    tpGPP <- data.frame(GPP=df$GPP, mdl=i, loc=df$localisation, pGPP=pGPP)
+    predGPP <- rbind(predGPP,tpGPP)
+  for (j in ER_par){
+    pER <- get_pER(j, dfFLUX)
+    pNEE <- pGPP - pER
+    mdl_name <- paste0(i, "-", j)
+    tpNEE <- data.frame(NEE=df$NEE, mdl=mdl_name, loc=df$localisation, pNEE=pNEE)
+    predNEE <- rbind(predNEE,tpNEE)
+  }
+}
+for (j in ER_par){
+    pER <- get_pER(j, dfFLUX)
+    tpER <- data.frame(ER=df$ER, mdl=j, loc=df$localisation, pER=pER)
+    predER <- rbind(predER,tpER)
+}
+```
+
+```{r}
+# Tableau resultats modèles NEE
+resNEE <- predNEE %>%
+  do(na.omit(.))%>%
+  group_by(mdl)%>%
+  do(mdl_indic(.$NEE, .$pNEE, mdl=.$mdl))%>%
+  ungroup()%>%
+  arrange(desc(aR2))
+
+resGPP <- predGPP %>%
+  do(na.omit(.))%>%
+  group_by(mdl)%>%
+  do(mdl_indic(.$GPP, .$pGPP, mdl=.$mdl))%>%
+  # do(mdl_indic(.$GPP, .$pGPP))%>%
+  ungroup()%>%
+  arrange(desc(aR2))
+
+resER <- predER %>%
+  do(na.omit(.))%>%
+  group_by(mdl)%>%
+  do(mdl_indic(.$ER, .$pER, mdl=.$mdl))%>%
+  ungroup()%>%
+  arrange(desc(aR2))
+```
+
+## NEE
+
+```{r}
+R2l <- resNEE %>%
+  select(mdl, R2)%>%
+  mutate(R2 = round(R2, 2))%>%
+  separate(mdl, c("mdl_GPP", "mdl_ER"), "-")%>%
+  spread(mdl_ER, R2)
+
+as.data.frame(R2l)
+```
+
+
+# ER
+
+```{r}
+resER
+```
+
+## Ta - T5
+
+```{r, eval=T, fig.width=4, fig.height=4}
+# datNEE <- filter(predNEE, mdl == "Tair_IVcov-Tair")
+# datGPP <- filter(predGPP, mdl == "Tair_IVcov")
+datER <- filter(predER, mdl == "Tair")
+
+# plot(NEE~pNEE,
+#      data=datNEE,
+#      # xlim=c(-4,2), ylim=c(-4,2),
+#      col=datNEE$loc,
+#      xlab=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+# , ylab=expression(paste("ENE mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+# abline(a=0, b=1, col="black", lty=2)
+# 
+# plot(GPP~pGPP,
+#      data=datGPP,
+#      xlab=expression(paste("PPB modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+#      ylab=expression(paste("PPB mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+# abline(a=0, b=1, col="black", lty=2)
+
+plot(ER~pER,
+     data=datER,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+
+datER <- filter(predER, mdl == "T5")
+
+plot(ER~pER,
+     data=datER,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+```
+
+## Tair_H - T5_H
+
+
+```{r, eval=T, fig.width=4, fig.height=4}
+datER <- filter(predER, mdl == "Tair_H")
+
+plot(ER~pER,
+     data=datER,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+
+datER <- filter(predER, mdl == "T5_H")
+
+plot(ER~pER,
+     data=datER,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+```
+
+## Tair_IVcov - T5_IVcov
+
+```{r, eval=T, fig.width=4, fig.height=4}
+datER <- filter(predER, mdl == "Tair_IVcov")
+
+plot(ER~pER,
+     data=datER,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+
+datER <- filter(predER, mdl == "T5_IVcov")
+
+plot(ER~pER,
+     data=datER,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+```
+
+# GPP
+
+```{r}
+resGPP
+```
+
+
+## Ta - T5
+
+```{r, eval=T, fig.width=4, fig.height=4}
+datGPP <- filter(predGPP, mdl == "Tair")
+
+plot(GPP~pGPP,
+     data=datGPP,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("PPB modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("PPB mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+
+
+datGPP <- filter(predGPP, mdl == "T5")
+
+plot(GPP~pGPP,
+     data=datGPP,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("PPB modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("PPB mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+```
+
+## Ta_IVcov - T5_IVcov
+
+```{r, eval=T, fig.width=4, fig.height=4}
+datGPP <- filter(predGPP, mdl == "Tair_IVcov")
+
+plot(GPP~pGPP,
+     data=datGPP,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("PPB modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("PPB mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+
+
+datGPP <- filter(predGPP, mdl == "T5_IVcov")
+
+plot(GPP~pGPP,
+     data=datGPP,
+     xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("PPB modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("PPB mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+```
+
+
+
+##
+
+## all mdl NEE
+
+```{r}
+as.data.frame(resNEE)
+```
+
+# Figures
+
+```{r, fig.height=8, result="hide"}
+# RE
+dat <- filter(predER, mdl == "T5")
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/validation", "ER_T5_val.pdf"), width=4, height=4)
+par(mar=c(4,4.5,.5,.5))
+plot(ER~pER,
+     data=dat,
+     xlim=c(0,5), ylim=c(0,5),
+     xlab=expression(paste("RE modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("RE mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+text(4.5,4.9, "1:1", srt=45)
+dev.off()
+
+# GPP
+dat <- filter(predGPP, mdl == "Tair_IVcov")
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/validation", "GPP_TairIVcov_val.pdf"), width=4, height=4)
+par(mar=c(4,4.5,.5,.5))
+plot(GPP~pGPP,
+     data=dat,
+     xlim=c(0,5), ylim=c(0,5),
+     xlab=expression(paste("PBB modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+text(4.5,4.9, "1:1", srt=45)
+dev.off()
+
+```
+

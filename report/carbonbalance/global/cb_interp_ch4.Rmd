@@ -1,0 +1,212 @@
+
+---
+title: "Interpolation annuelle"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/interpolation"
+
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+```{r load_data}
+# Récupérer données interpolée
+cT2 <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cTprofile_all.csv")%>%
+  select(timestamp, Tair, T5)%>%
+  rename(cTair = Tair, cT5 = T5)
+
+cT <- wrLGT %>%
+  select(timestamp, Ta, Ts_1)%>%
+  filter(timestamp >= as.POSIXct("01/01/2013", format = "%d/%m/%Y"))%>%
+  rename(Tair=Ta, T5=Ts_1)%>%
+  mutate(hour = cut(timestamp, breaks="hours"))%>% # daily mean
+  # mutate(day = cut(timestamp, breaks="days"))%>% # daily mean
+  select(-timestamp)%>%
+  group_by(hour)%>%
+  # group_by(day)%>%
+  summarise_each(funs(mean))%>%
+  mutate(timestamp = as.POSIXct(hour, format="%Y-%m-%d %H:%M:%S"))%>%
+  # mutate(timestamp = as.POSIXct(day, format="%Y-%m-%d"))%>%
+  select(-hour)%>%
+  # select(-day)%>%
+  mutate(timestamp = as.factor(timestamp))
+
+cT <- merge(cT, cT2)%>% # Tair T5 station
+  rename(stTair = Tair, stT5 = T5)%>%
+  rename(Tair = cTair, T5 = cT5) # Tair T5 interpolé à partir mesures
+  
+# plot(cT$Tair~cT$stTair)
+# # plot(tt$T5~tt$cT5)
+# abline(a=0, b=1, col="red")
+
+
+# ENE : PAR
+cPAR <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cPAR_all_hour.csv")
+# Veg H
+cVEG <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cVeg_all_hour.csv")
+# Soil water content
+cRH <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cRH_all_hour.csv")
+
+lookup <- c("1" = "p01", "2" = "p02", "3" = "p03", "4" = "p04", "5" = "p05", "6" = "p06", "5'"="A", "5\""="B", "ETREPEE"="C")
+
+df_p <- read.csv("~/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/other/LG_CH4.csv", sep=",", dec=".") %>%
+  filter(CH4 < 1000, plot != "ETREPEE")%>%
+  select(date, ID_camp_co2, plot, CH4)%>%
+  mutate(date = as.POSIXct(date, format="%Y-%m-%d"))%>%
+  filter(ID_camp_co2 != "none")%>% # retrait campagne méthane sans CO2
+  filter(plot %in% c(1,2,3,4,5,6))%>% # retrait embases autre que VS
+  mutate(plot = as.numeric(as.character(plot)))%>%
+  mutate(placette = lookup[plot])%>%
+  select(-plot)%>%
+  rename(ID_camp = ID_camp_co2)%>%
+  mutate(ID_camp = as.numeric(as.character(ID_camp)))%>%
+  group_by(ID_camp, placette)%>%
+  summarise(date=min(date, na.rm=T), CH4=mean(CH4, na.rm=T)) %>%
+  group_by(ID_camp)%>%
+  summarise(CH4_sd = sd(CH4, na.rm=T),
+            CH4 = mean(CH4, na.rm=T),
+            date=min(date, na.rm=T)
+            )
+
+```
+
+```{r load_mdl_par}
+CH4par <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/CH4_mdlpar.csv")
+
+lCH4par <- CH4par %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+```
+
+```{r}
+get_pCH4 <- function(name="H_exp", df=df){
+  parCH4 <- lCH4par %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parCH4) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés_n")
+  }
+  
+  # retrieve par
+  a <- parCH4$val[1]
+  b <- parCH4$val[2]
+  
+  # lin or exp
+  p <- strsplit(name, "_")[[1]][1]
+  m <- strsplit(name, "_")[[1]][2]
+  
+  dft <- df[,c("timestamp", p)]
+  
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(m == "exp"){
+    pCH4 <- a*exp(b*dft[,2])
+  }else{
+    pCH4 <- (a + b*dft[,2])
+  }
+  return(pCH4)
+  # return(as.vector(pER[,1]))
+}
+```
+
+
+```{r}
+BdC <- cT %>%
+  inner_join(.,cPAR)%>%
+  # inner_join(.,cVEG)%>%
+  left_join(.,cVEG)%>%
+  left_join(.,cRH)%>%
+  select(timestamp, Tair, T5, IVcov, H)%>%
+  mutate(timestamp = as.POSIXct(timestamp, format="%Y-%m-%d %H:%M:%S"))
+
+# Liste des modèles à tester
+CH4_mdl <- c("IVcov_lin", "IVcov_exp", "H_lin", "H_exp")
+
+# Calcul prediction NEE
+# Si NEE GPP et ER dans la mm boucle : doublons pour ER et GPP
+predCH4 <- data.frame()
+for (j in CH4_mdl){
+    pCH4 <- get_pCH4(j, BdC)
+    tpCH4 <- data.frame(timestamp=BdC$timestamp, pCH4=pCH4, mdl=j)
+    predCH4 <- rbind(predCH4,tpCH4)
+}
+```
+
+
+```{r}
+# Convertion fact from umol.m2.s1 to gC.m2.yr
+cfA <- (3600*24*365)*1e-9*12
+
+# Resumé ER
+summCH4 <- predCH4%>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(mdl, yr)%>%
+  summarise(pCH4 = mean(pCH4, na.rm=T))%>%
+  mutate(pCH4_gC = pCH4*cfA)
+
+summCH4_yr <- summCH4 %>%
+  filter(yr %in% c(2013, 2014))%>%
+  select(mdl, pCH4_gC, yr)%>%
+  spread(yr, pCH4_gC)%>%
+  mutate(all =(`2013`+`2014`)/2)
+
+as.data.frame(summCH4_yr)
+
+```
+
+# Bilan interpolé
+
+
+## CH4 : H
+
+```{r, eval=T}
+dat <- filter(predCH4, mdl == "H_exp")
+
+p1 <- ggplot(df_p, aes(x=date, y=CH4))+
+  geom_line(data = dat, aes(x=timestamp, y=pCH4))+
+  geom_point(color="blue", size=3)+
+  geom_linerange(data = df_p, aes(x=date, ymin=CH4-CH4_sd, ymax=CH4+CH4_sd), color="blue")+
+  labs(y=expression(paste("CH"[4], " modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="2013 - 2013")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  theme_bw()+
+  theme(#axis.title=element_text(size=16), # DIAPO
+#         strip.text.x = element_text(size = 14), #DIAPO
+#         axis.text=element_text(size=14), # DIAPO
+#         axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("CH4_BdCitp_H.pdf", plot=p1, path=savpth, width=7, height=3, cairo_pdf)
+```

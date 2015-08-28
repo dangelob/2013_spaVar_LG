@@ -1,0 +1,462 @@
+---
+title: "global GPP sat model"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPPsat"
+# Path to the project
+proj_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG"
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+
+```{r load data}
+# Fichier VS -- Données ponctuelles
+## Flux
+dfGPP <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/3F_data.csv") %>%
+  filter(F_type == "GPP")%>%
+  rename(netCO2F=flux)%>%
+  select(date, ID_camp, placette, netCO2F)
+
+## Vegetation
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/svIVcov.csv") %>%
+  select(ID_camp, placette, IVcov, IVcov_area)
+# dfveg <- svVegetation %>%
+#   group_by(ID_camp, placette)%>%
+#   filter(specie == "molinia")%>%
+#   mutate(area_m = mol_LtoS(height_m*10),
+#          area = (area_m * number)/1000000, # conversion m2
+#          LAI = area/max(area, na.rm=T),
+#          cover = as.numeric(as.character(cover)))%>%
+#   select(ID_camp, placette, cover, number, area)
+# dfveg$area <- ifelse(dfveg$number == 0, 0, dfveg$area)
+
+## Ctrl facteur
+dfctrl <- svCtrlFact %>%
+  select(ID_camp, placette, PAR_Deb, PAR_Fin, WTL, RH_m)%>%
+  mutate(PAR = rowMeans(.[,3:4], na.rm=T))%>%
+  select(ID_camp, placette, PAR, RH_m, WTL)
+
+## Soil temperature
+dfT <- svTemperature %>%
+  select(ID_camp, placette, Tair, T5, T10, T15, T20, T25, T30)
+
+## Merge all
+# données ponctuelles
+df_all <- dfGPP %>%
+  left_join(., dfT, by=c("ID_camp", "placette"))%>%
+  left_join(., dfctrl, by=c("ID_camp", "placette"))%>%
+  left_join(., dfveg, by=c("ID_camp", "placette"))%>%
+  filter(netCO2F > 0, PAR > 500) # remove value below 0 and light saturation data only
+
+# données moyennées
+df <- df_all %>%
+  group_by(ID_camp)%>%
+  summarise(netCO2F=mean(netCO2F, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            T5=mean(T5, na.rm=T),
+            T10=mean(T10, na.rm=T),
+            T15=mean(T15, na.rm=T),
+            T20=mean(T20, na.rm=T),
+            T25=mean(T25, na.rm=T),
+            T30=mean(T30, na.rm=T),
+            PAR=mean(PAR, na.rm=T),
+            WTL=mean(WTL, na.rm=T),
+            RH_m=mean(RH_m, na.rm=T),
+            # H=mean(H, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T),
+            IVcov_area=mean(IVcov_area, na.rm=T)
+            )
+
+```
+
+
+```{r functions}
+pGPP_T <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~T25, xlab="température à -15 cm (°C)",ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+pGPP_Tair <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~Tair, xlab="température de l'air (°C)",ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+pmesmod <- function(X){
+par(mar=c(4,4.5,.5,.5))
+plot(netCO2F~predman, ylim=c(0,20), xlim=c(0,20),xlab=expression(paste("PBB modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
+}
+
+presmod <- function(X){
+par(mar=c(4,4,.5,.5))
+plot(resi~predman, xlab="valeurs prédites", ylab="résidus", data=X)
+}
+```
+
+## GPP representation
+
+According to <a href="../../relation_flux_T/GPP_T.html"> this document </a> the best ER representation with temperature at global scale is found by using an exponential model with -25 cm depth temperature.
+
+# Temperature, ER~aexp-((Tair-b)/c)
+
+
+```{r calc mdl}
+# Linear version ------------------------
+df_mT_lm <- df
+#test exp
+mT_lm <- lm(log(netCO2F)~Tair, data = df_mT_lm, na.action = na.exclude)
+summary(mT_lm)
+# mT_lm <- lm(log(netCO2F)~T5, data = df_mT_lm, na.action = na.exclude)
+summary(mT_lm)
+
+a <- exp(coef(mT_lm)[1])
+b <- coef(mT_lm)[2]
+Q10 <- exp(10*b)
+
+df_mT_lm$resi <- residuals(mT_lm)
+df_mT_lm$pred <- predict(mT_lm)
+df_mT_lm$predman <- a*exp(b*df_mT_lm$Tair)
+# df_mT_lm$predman <- a*exp(b*df_mT_lm$T5)
+
+rmse_ER_T25_lm <- sqrt(mean((df_mT_lm$predman-df_mT_lm$netCO2F)^2,na.rm=TRUE))
+
+# Non linear version --------------------
+df_mJune <- df
+
+mJune <- nls(netCO2F ~ a * exp(-((Tair-b)/c)^2), data=df_mJune, start=list(a=20, b=30, c=10), na.action = na.exclude)
+# mJune <- nls(netCO2F ~ a * exp(-((T15-b)/c)^2), data=df_mJune, start=list(a=10, b=10, c=10), na.action = na.exclude)
+
+
+a <- coef(mJune)[1]
+b <- coef(mJune)[2]
+c <- coef(mJune)[3]
+
+df_mJune$resi <- residuals(mJune)
+df_mJune$pred <- predict(mJune)
+df_mJune$predman <- a * exp(-((df_mJune$Tair-b)/c)^2)
+
+df_all$predman <- a * exp(-((df_all$Tair-b)/c)^2)
+df_all$resi <- df_all$netCO2F - df_all$predman
+
+# Calcul manuel du R2
+# Attention à la linéarisation
+devmean <- df_mJune$netCO2F-(mean(df_mJune$netCO2F)) # deviation à la moyenne
+SSres <-sum(df_mJune$resi^2) # Total sum of squares
+SStot <- sum(devmean^2) # Residual sum of squares
+# 2 way to calculate
+R2 <- (SStot-SSres)/SStot 
+R2 <- 1 - SSres/SStot
+# Adjusted R2
+N <- NROW(devmean) # sample size
+p <- 1 # number of predictors
+R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+
+rmse_GPP_T15June <- sqrt(mean((df_mJune$predman-df_mJune$netCO2F)^2,na.rm=TRUE))
+```
+
+
+```{r, fig.height=4}
+par(mfrow=c(1,3))
+pGPP_Tair(df_mJune)
+curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+pmesmod(df_mJune)
+presmod(df_mJune)
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,3))
+pGPP_Tair(df_all)
+curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+pmesmod(df_all)
+presmod(df_all)
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+ER = `r a` * exp(-((T15 - `r b`)/ `r c`)^2)
+
+### diagnostic values
+
+rmse = `r rmse_GPP_T15June` (nls)
+
+aic = `r AIC(mJune)` (nls)
+
+```{r exprt_fig, error=FALSE, results="hide"}
+cairo_pdf(file.path(savpth, "GPP_T15June_ecosyt.pdf"), width=6.5, height=5)
+pGPP_T(df_mJune)
+curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_TairJune_ecosyt_mesmod.pdf"), width=5, height=5)
+pmesmod(df_mJune)
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_TairJune_ecosyt_resmod.pdf"), width=5, height=5)
+presmod(df_mJune)
+dev.off()
+```
+
+## Residual vs other controlling factors
+
+```{r, fig.height=4}
+par(mfrow=c(1,3))
+plot(df_mJune$resi~df_mJune$WTL, main="vs. WTL") 
+plot(df_mJune$resi~df_mJune$RH_m, main="vs. RH") 
+plot(df_mJune$resi~df_mJune$IVcov, main="vs. IV cov")
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,3))
+plot(df_all$resi~df_all$WTL, main="vs. WTL") 
+plot(df_all$resi~df_all$RH_m, main="vs. RH") 
+plot(df_all$resi~df_all$IVcov, main="vs. IV cov")
+par(mfrow=c(1,1))
+```
+
+
+
+# Temperature, RH, ER~a * RH_m * exp-((T25-b)/c)
+
+```{r calc mdl + RH, eval=FALSE}
+# Linear version ------------------------
+
+# Non linear version --------------------
+df_mJuneRH <- df
+
+mJuneRH <- nls(netCO2F ~ a * RH_m * exp(-((Tair-b)/c)^2), data=df_mJuneRH, start=list(a=12, b=20, c=9), na.action = na.exclude)
+
+a <- coef(mJuneRH)[1]
+b <- coef(mJuneRH)[2]
+c <- coef(mJuneRH)[3]
+
+df_mJuneRH$resi <- residuals(mJuneRH)
+df_mJuneRH$pred <- predict(mJuneRH)
+# df_mJuneRH$predman <- a*exp(b*df_mJuneRH$T25)
+df_mJuneRH$predman <- a * df_mJuneRH$RH_m * exp(-((df_mJuneRH$Tair-b)/c)^2)
+
+rmse_GPP_T15RHJune <- sqrt(mean((df_mJuneRH$predman-df_mJuneRH$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=4, eval=FALSE}
+par(mfrow=c(1,3))
+pGPP_T(df_mJuneRH)
+# curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+pmesmod(df_mJuneRH)
+presmod(df_mJuneRH)
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+ER = a * RH_m * exp(-((Tair - a)/ c`)^2)
+
+### diagnostic values
+
+rmse =  (nls)
+
+aic = (nls)
+
+```{r, error=FALSE, results="hide", eval=FALSE}
+cairo_pdf(file.path(savpth, "GPP_TairRHJune_ecosyt.pdf"), width=6.5, height=5)
+pGPP_T(df_mJuneRH)
+# curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_TairRHJune_ecosyt_mesmod.pdf"), width=5, height=5)
+pmesmod(df_mJuneRH)
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_TairRHJune_ecosyt_nesmod.pdf"), width=5, height=5)
+presmod(df_mJuneRH)
+dev.off()
+```
+
+
+
+
+# Temperature WTL, ER~a * WTL * exp-((Tair-b)/c)
+
+```{r}
+# Linear version ------------------------
+
+# Non linear version --------------------
+df_mJuneWTL <- df
+
+mJuneWTL <- nls(netCO2F ~ a * WTL * exp(-((Tair-b)/c)^2), data=df_mJuneWTL, start=list(a=12, b=20, c=9), na.action = na.exclude)
+
+a <- coef(mJuneWTL)[1]
+b <- coef(mJuneWTL)[2]
+c <- coef(mJuneWTL)[3]
+
+df_mJuneWTL$resi <- residuals(mJuneWTL)
+df_mJuneWTL$pred <- predict(mJuneWTL)
+# df_mJuneWTL$predman <- a*exp(b*df_mJuneWTL$T25)
+df_mJuneWTL$predman <- a * df_mJuneWTL$WTL * exp(-((df_mJuneWTL$Tair-b)/c)^2)
+
+# Calcul manuel du R2
+# Attention à la linéarisation
+devmean <- df_mJuneWTL$netCO2F-(mean(df_mJuneWTL$netCO2F)) # deviation à la moyenne
+SSres <-sum(df_mJuneWTL$resi^2) # Total sum of squares
+SStot <- sum(devmean^2) # Residual sum of squares
+# 2 way to calculate
+R2 <- (SStot-SSres)/SStot 
+R2 <- 1 - SSres/SStot
+# Adjusted R2
+N <- NROW(devmean) # sample size
+p <- 1 # number of predictors
+R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+
+
+rmse_GPP_T15WTLJune <- sqrt(mean((df_mJuneWTL$predman-df_mJuneWTL$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=4}
+par(mfrow=c(1,3))
+pGPP_T(df_mJuneWTL)
+# curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+pmesmod(df_mJuneWTL)
+presmod(df_mJuneWTL)
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+ER = `r a` * RH_m * exp(-((Tair - `r b`)/ `r c`)^2)
+
+### diagnostic values
+
+rmse = `r rmse_GPP_T15WTLJune` (nls)
+
+aic = `r AIC(mJuneWTL)` (nls)
+
+```{r, error=FALSE, results="hide"}
+cairo_pdf(file.path(savpth, "GPP_TairWTLJune_ecosyt.pdf"), width=6.5, height=5)
+pGPP_T(df_mJuneWTL)
+# curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_TairWTLJune_ecosyt_mesmod.pdf"), width=5, height=5)
+pmesmod(df_mJuneWTL)
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_TairWTLJune_ecosyt_resmod.pdf"), width=5, height=5)
+presmod(df_mJuneWTL)
+dev.off()
+```
+
+
+# Temperature Veg, ER~a * IVcov * exp-((T15-b)/c)
+
+```{r}
+# Linear version ------------------------
+
+# Non linear version --------------------
+df_mJunemolCOV <- df
+
+mJunemolCOV <- nls(netCO2F ~ a * IVcov * exp(-((Tair-b)/c)^2), data=df_mJunemolCOV, start=list(a=12, b=20, c=9), na.action = na.exclude)
+# mJunemolCOV <- nls(netCO2F ~ a * area * exp(-((T15-b)/c)^2), data=df_mJunemolCOV, start=list(a=12, b=20, c=9), na.action = na.exclude, trace=T)
+
+a <- coef(mJunemolCOV)[1]
+b <- coef(mJunemolCOV)[2]
+c <- coef(mJunemolCOV)[3]
+
+df_mJunemolCOV$resi <- residuals(mJunemolCOV)
+df_mJunemolCOV$pred <- predict(mJunemolCOV)
+# df_mJunemolCOV$predman <- a*exp(b*df_mJunemolCOV$T25)
+df_mJunemolCOV$predman <- a * df_mJunemolCOV$IVcov * exp(-((df_mJunemolCOV$Tair-b)/c)^2)
+
+df_all$predman <- a * df_all$IVcov * exp(-((df_all$Tair-b)/c)^2)
+df_all$resi <- df_all$netCO2F-df_all$predman
+
+# Calcul manuel du R2
+# Attention à la linéarisation
+devmean <- df_mJunemolCOV$netCO2F-(mean(df_mJunemolCOV$netCO2F)) # deviation à la moyenne
+SSres <-sum(df_mJunemolCOV$resi^2) # Total sum of squares
+SStot <- sum(devmean^2) # Residual sum of squares
+# 2 way to calculate
+R2 <- (SStot-SSres)/SStot 
+R2 <- 1 - SSres/SStot
+# Adjusted R2
+N <- NROW(devmean) # sample size
+p <- 1 # number of predictors
+R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+
+
+rmse_GPP_T15molCOVJune <- sqrt(mean((df_mJunemolCOV$predman-df_mJunemolCOV$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=4}
+par(mfrow=c(1,3))
+pGPP_T(df_mJunemolCOV)
+pmesmod(df_mJunemolCOV)
+presmod(df_mJunemolCOV)
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,3))
+pGPP_T(df_all)
+pmesmod(df_all)
+presmod(df_all)
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+ER = `r a` * IVcov * exp(-((Tair - `r b`)/ `r c`)^2)
+
+### diagnostic values
+
+rmse = `r rmse_GPP_T15molCOVJune` (nls)
+
+aic = `r AIC(mJunemolCOV)` (nls)
+
+```{r, error=FALSE, results="hide"}
+cairo_pdf(file.path(savpth, "GPP_TairIVCOVJune_ecosyt.pdf"), width=6.5, height=5)
+pGPP_T(df_mJunemolCOV)
+# curve(a*exp(-((x-b)/c)^2), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_TairIVCOVJune_ecosyt_mesmod.pdf"), width=5, height=5)
+pmesmod(df_mJunemolCOV)
+dev.off()
+
+cairo_pdf(file.path(savpth, "GPP_TairIVCOVJune_ecosyt_resmod.pdf"), width=5, height=5)
+presmod(df_mJunemolCOV)
+dev.off()
+```
+
+
+
+
+
+
+

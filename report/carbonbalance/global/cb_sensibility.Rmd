@@ -1,0 +1,479 @@
+
+---
+title: "Sensibilité mdls"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/interpolation"
+# savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ENE"
+# outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/mdl_ecosyst"
+# Path to data output
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+```{r load_data}
+# Récupérer données interpolée
+cT2 <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cTprofile_all.csv")%>%
+  select(timestamp, Tair, T5)%>%
+  rename(cTair = Tair, cT5 = T5)
+
+cT <- wrLGT %>%
+  select(timestamp, Ta, Ts_1)%>%
+  filter(timestamp >= as.POSIXct("01/01/2013", format = "%d/%m/%Y"))%>%
+  rename(Tair=Ta, T5=Ts_1)%>%
+  mutate(hour = cut(timestamp, breaks="hours"))%>% # daily mean
+  # mutate(day = cut(timestamp, breaks="days"))%>% # daily mean
+  select(-timestamp)%>%
+  group_by(hour)%>%
+  # group_by(day)%>%
+  summarise_each(funs(mean))%>%
+  mutate(timestamp = as.POSIXct(hour, format="%Y-%m-%d %H:%M:%S"))%>%
+  # mutate(timestamp = as.POSIXct(day, format="%Y-%m-%d"))%>%
+  select(-hour)%>%
+  # select(-day)%>%
+  mutate(timestamp = as.factor(timestamp))
+
+cT <- merge(cT, cT2)%>% # Tair T5 station
+  rename(stTair = Tair, stT5 = T5)%>%
+  rename(Tair = cTair, T5 = cT5) # Tair T5 interpolé à partir mesures
+  
+# plot(cT$Tair~cT$stTair)
+# # plot(tt$T5~tt$cT5)
+# abline(a=0, b=1, col="red")
+
+
+# ENE : PAR
+cPAR <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cPAR_all_hour.csv")
+# Veg H
+cVEG <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cVeg_all_hour.csv")
+# Soil water content
+cRH <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cRH_all_hour.csv")
+
+df_p <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/3F_data.csv") %>%
+  spread(F_type, flux)%>%
+  group_by(ID_camp)%>%
+  summarise(date=min(as.Date(date)), 
+            ER_sd=sd(ER,na.rm=T), 
+            ER=mean(ER,na.rm=T), 
+            GPP_sd=sd(GPP,na.rm=T), 
+            GPP=mean(GPP,na.rm=T), 
+            NEE_sd=sd(NEE, na.rm=T),
+            NEE=mean(NEE, na.rm=T))%>%
+  mutate(date = as.POSIXct(date))%>%
+  filter(ID_camp < 20)
+
+```
+
+```{r load_mdl_par}
+ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
+GPPpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPP_mdlpar.csv")
+GPPsatpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPPsat_mdlpar.csv")
+CH4par <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/CH4_mdlpar.csv")
+
+lERpar <- ERpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)#%>%
+  # filter(mdl == "T5")
+
+lGPPpar <- GPPpar %>%
+  gather(par, value, 2)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)#%>%
+  # filter(mdl %in% c("Tair", "Tair_IVcov"))
+
+lGPPsatpar <- GPPsatpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)#%>%
+  # filter(mdl %in% c("Tair", "Tair_IVcov"))
+
+lCH4par <- CH4par %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+```
+
+```{r}
+get_pCH4 <- function(name="H_exp", df=df){
+  parCH4 <- lCH4par %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parCH4) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés_n")
+  }
+  
+  # retrieve par
+  a <- parCH4$val[1]
+  b <- parCH4$val[2]
+  ap <- a + (a*0.1)
+  am <- a - (a*0.1)
+  bp <- b + (b*0.1)
+  bm <- b - (b*0.1)
+  
+  # lin or exp
+  p <- strsplit(name, "_")[[1]][1]
+  m <- strsplit(name, "_")[[1]][2]
+  
+  dft <- df[,c("timestamp", p)]
+  
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(m == "exp"){
+    pCH4 <- a*exp(b*dft[,2])
+    pCH4_ap <- ap*exp(b*dft[,2])
+    pCH4_am <- am*exp(b*dft[,2])
+    pCH4_bp <- a*exp(bp*dft[,2])
+    pCH4_bm <- a*exp(bm*dft[,2])
+  }else{
+    pCH4 <- (a + b*dft[,2])
+    pCH4_ap <- (ap + b*dft[,2])
+    pCH4_am <- (am + b*dft[,2])
+    pCH4_bp <- (a + bp*dft[,2])
+    pCH4_bm <- (a + bm*dft[,2])
+  }
+  pCH4 <- data.frame(pCH4=pCH4,
+                     pCH4_ap=pCH4_ap, pCH4_am=pCH4_am,
+                     pCH4_bp=pCH4_bp, pCH4_bm=pCH4_bm)
+  return(pCH4)
+  # return(as.vector(pER[,1]))
+}
+
+get_pER <- function(name="Tair", df=df){
+  parER <- lERpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parER) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés_n")
+  }
+  
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("timestamp", names[1], names[2])]
+  }else{
+    dft <- df[,c("timestamp", name)]
+  }
+  
+  # Calcul pER en fonction du nb de par
+  pER <- c()
+  if(NROW(parER) == 2){
+    a <- parER$val[1]
+    b <- parER$val[2]
+    ap <- a + (a*0.1)
+    am <- a - (a*0.1)
+    bp <- b + (b*0.1)
+    bm <- b - (b*0.1)
+    pER <- a*exp(b*dft[,2])
+    pER_ap <- ap*exp(b*dft[,2])
+    pER_am <- am*exp(b*dft[,2])
+    pER_bp <- a*exp(bp*dft[,2])
+    pER_bm <- a*exp(bm*dft[,2])
+    pER_cp <- NA
+    pER_cm <- NA
+  }else if(NROW(parER) == 3){
+    a <- parER$val[1]
+    b <- parER$val[2]
+    c <- parER$val[3]
+    ap <- a + (a*0.1)
+    am <- a - (a*0.1)
+    bp <- b + (b*0.1)
+    bm <- b - (b*0.1)
+    cp <- c + (c*0.1)
+    cm <- c - (c*0.1)
+    pER <- (a*dft[,3]+c)*exp(b*dft[,2])
+    pER_ap <- (ap*dft[,3]+c)*exp(b*dft[,2])
+    pER_am <- (am*dft[,3]+c)*exp(b*dft[,2])
+    pER_bp <- (a*dft[,3]+c)*exp(bp*dft[,2])
+    pER_bm <- (a*dft[,3]+c)*exp(bm*dft[,2])
+    pER_cp <- (a*dft[,3]+cp)*exp(b*dft[,2])
+    pER_cm <- (a*dft[,3]+cm)*exp(b*dft[,2])
+  }else{
+    cat("nb de par > 3\n")
+  }
+  pER <- data.frame(pER=pER, pER_ap=pER_ap, pER_am=pER_am, 
+                    pER_bp=pER_bp, pER_bm=pER_bm, 
+                    pER_cp=pER_cp, pER_cm=pER_cm)
+  return(pER)
+  # return(as.vector(pER[,1]))
+}
+
+get_pGPP <- function(name="Tair", df=df){
+  parGPPsat <- lGPPsatpar %>%
+    filter(mdl == name)
+  parGPP <- lGPPpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parGPPsat) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés \n")
+  }
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("timestamp", "PAR", names[1], names[2])]
+  }else{
+    dft <- df[,c("timestamp", "PAR", name)]
+  }
+  # Calcul pER en fonction du nb de par
+  if(NCOL(dft) == 3){
+    a <- parGPPsat$val[1]
+    b <- parGPPsat$val[2]
+    c <- parGPPsat$val[3]
+    #+10%
+    ap <- a + (a*0.1)
+    bp <- b + (b*0.1)
+    cp <- c + (c*0.1)
+    #-10%
+    am <- a - (a*0.1)
+    bm <- b - (b*0.1)
+    cm <- c - (c*0.1)
+    X1 <- dft[,3]
+    pGPPsat <- a * exp(-((X1-b)/c)^2)
+    pGPPsat_ap <- ap * exp(-((X1-b)/c)^2)
+    pGPPsat_bp <- a * exp(-((X1-bp)/c)^2)
+    pGPPsat_cp <- a * exp(-((X1-b)/cp)^2)
+    pGPPsat_am <- am * exp(-((X1-b)/c)^2)
+    pGPPsat_bm <- a * exp(-((X1-bm)/c)^2)
+    pGPPsat_cm <- a * exp(-((X1-b)/cm)^2)
+  }else if(NCOL(dft) == 4){
+    a <- parGPPsat$val[1]
+    b <- parGPPsat$val[2]
+    c <- parGPPsat$val[3]
+    #+10%
+    ap <- a + (a*0.1)
+    bp <- b + (b*0.1)
+    cp <- c + (c*0.1)
+    #-10%
+    am <- a - (a*0.1)
+    bm <- b - (b*0.1)
+    cm <- c - (c*0.1)
+    X1 <- dft[,3]
+    X2 <- dft[,4]
+    pGPPsat <- (a*X2) * exp(-((X1-b)/c)^2)
+    pGPPsat_ap <- (ap*X2) * exp(-((X1-b)/c)^2)
+    pGPPsat_bp <- (a*X2) * exp(-((X1-bp)/c)^2)
+    pGPPsat_cp <- (a*X2) * exp(-((X1-b)/cp)^2)
+    pGPPsat_am <- (am*X2) * exp(-((X1-b)/c)^2)
+    pGPPsat_bm <- (a*X2) * exp(-((X1-bm)/c)^2)
+    pGPPsat_cm <- (a*X2) * exp(-((X1-b)/cm)^2)
+  }else{
+    cat("nb de par > 3\n")
+  }
+  # pGPPsat <- as.vector(pGPPsat[,1])
+  i <- parGPP$val[1]
+  ip <- i + (i*0.1)
+  im <- i - (i*0.1)
+  pGPP = (i*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*i))
+  pGPP_ip = (ip*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*ip))
+  pGPP_im = (im*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*im))
+  pGPP_ap = (i*dft$PAR*pGPPsat_ap/(pGPPsat_ap+dft$PAR*i))
+  pGPP_bp = (i*dft$PAR*pGPPsat_bp/(pGPPsat_bp+dft$PAR*i))
+  pGPP_cp = (i*dft$PAR*pGPPsat_cp/(pGPPsat_cp+dft$PAR*i))
+  pGPP_am = (i*dft$PAR*pGPPsat_am/(pGPPsat_am+dft$PAR*i))
+  pGPP_bm = (i*dft$PAR*pGPPsat_bm/(pGPPsat_bm+dft$PAR*i))
+  pGPP_cm = (i*dft$PAR*pGPPsat_cm/(pGPPsat_cm+dft$PAR*i))
+
+  pGPP <- data.frame(pGPP=pGPP, pGPP_ip=pGPP_ip, pGPP_im=pGPP_im,
+                     pGPP_ap=pGPP_ap, pGPP_bp=pGPP_bp, pGPP_cp=pGPP_cp,
+                     pGPP_am=pGPP_am, pGPP_bm=pGPP_bm, pGPP_cm=pGPP_cm)
+  return(pGPP)
+}
+
+
+
+```
+
+
+```{r}
+BdC <- cT %>%
+  inner_join(.,cPAR)%>%
+  # inner_join(.,cVEG)%>%
+  left_join(.,cVEG)%>%
+  left_join(.,cRH)%>%
+  select(timestamp, PAR, Tair, T5, IVcov, H)%>%
+  mutate(timestamp = as.POSIXct(timestamp, format="%Y-%m-%d %H:%M:%S"))
+
+# Liste des modèles à tester
+GPP_par <- c("Tair", "Tair_IVcov")
+ER_par <- c("Tair", "Tair_IVcov")
+CH4_par <- c("H_exp", "H_lin")
+
+predGPP <- data.frame()
+predER <- data.frame()
+predCH4 <- data.frame()
+
+for (i in GPP_par){
+    pGPP <- get_pGPP(i, BdC)
+    tpGPP <- cbind(data.frame(timestamp=BdC$timestamp, mdl=i), pGPP)
+    predGPP <- rbind(predGPP,tpGPP)
+}
+for (j in ER_par){
+    pER <- get_pER(j, BdC)
+    tpER <- cbind(data.frame(timestamp=BdC$timestamp,mdl=j), pER)
+    predER <- rbind(predER,tpER)
+}
+
+for (k in CH4_par){
+    pCH4 <- get_pCH4(k, BdC)
+    tpCH4 <- cbind(data.frame(timestamp=BdC$timestamp,mdl=k), pCH4)
+    predCH4 <- rbind(predCH4,tpCH4)
+}
+
+# predER$timestamp <- as.POSIXct(predER$timestamp, format="%Y-%m-%d %H:%M:%S")
+# predGPP$timestamp <- as.POSIXct(predGPP$timestamp, format="%Y-%m-%d %H:%M:%S")
+# predNEE$timestamp <- as.POSIXct(predNEE$timestamp, format="%Y-%m-%d %H:%M:%S")
+
+```
+
+
+```{r}
+# Convertion fact from umol.m2.s1 to gC.m2.yr
+cfA <- (3600*24*365)*1e-6*12
+cfB <- (3600*24*365)*1e-9*12
+
+# Resumé ER
+summER <- predER %>%
+  gather("modif", "value", 3:NCOL(predER))%>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(mdl, modif, yr)%>%
+  summarise(pER = mean(value, na.rm=T))%>%
+  mutate(pER_gC = pER*cfA)
+
+summER_allyr <- predER %>%
+  gather("modif", "value", 3:NCOL(predER))%>%
+  group_by(mdl, modif)%>%
+  summarise(pER = mean(value, na.rm=T))%>%
+  mutate(pER_gC = pER*cfA)%>%
+  mutate(diff = round(((pER_gC-.$pER_gC[1])*100/.$pER_gC[1]),2))
+
+summER_yr <- summER %>%
+  filter(yr %in% c(2013, 2014))%>%
+  select(mdl, modif, pER_gC, yr)%>%
+  spread(yr, pER_gC)
+
+as.data.frame(summER_allyr)
+
+# Resumé GPP
+summGPP <- predGPP %>%
+  gather("modif", "value", 3:NCOL(predGPP))%>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(mdl, modif, yr)%>%
+  summarise(pGPP = mean(value, na.rm=T))%>%
+  mutate(pGPP_gC = pGPP*cfA)
+
+summGPP_allyr <- predGPP %>%
+  gather("modif", "value", 3:NCOL(predGPP))%>%
+  group_by(mdl, modif)%>%
+  summarise(pGPP = mean(value, na.rm=T))%>%
+  mutate(pGPP_gC = pGPP*cfA)%>%
+  mutate(diff = round(((pGPP_gC-.$pGPP_gC[1])*100/.$pGPP_gC[1]),2))
+
+summGPP_yr <- summGPP %>%
+  filter(yr %in% c(2013, 2014))%>%
+  select(mdl, pGPP_gC, yr)%>%
+  spread(yr, pGPP_gC)
+
+as.data.frame(summGPP_allyr)
+
+# Resumé CH4
+summCH4 <- predCH4 %>%
+  gather("modif", "value", 3:NCOL(predCH4))%>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(mdl, modif, yr)%>%
+  summarise(pCH4 = mean(value, na.rm=T))%>%
+  mutate(pCH4_gC = pCH4*cfB)
+
+summCH4_allyr <- predCH4 %>%
+  gather("modif", "value", 3:NCOL(predCH4))%>%
+  group_by(mdl, modif)%>%
+  summarise(pCH4 = mean(value, na.rm=T))%>%
+  mutate(pCH4_gC = pCH4*cfB)%>%
+  mutate(diff = round(((pCH4_gC-.$pCH4_gC[1])*100/.$pCH4_gC[1]),2))
+
+summCH4_yr <- summCH4 %>%
+  filter(yr %in% c(2013, 2014))%>%
+  select(mdl, pCH4_gC, yr)%>%
+  spread(yr, pCH4_gC)
+
+as.data.frame(summCH4_allyr)
+```
+
+```{r}
+CH4_parm <- "H_exp"
+
+out <- data.frame()
+for(i in ER_par){
+  for(j in GPP_par){
+    for(k in CH4_parm){
+      opGPP <- filter(summGPP_allyr, mdl==j, modif=="pGPP")
+      opER <- filter(summER_allyr, mdl==i, modif=="pER")
+      opCH4 <- filter(summCH4_allyr, mdl==k, modif=="pCH4")
+      ocb <- opGPP$pGPP_gC-opER$pER_gC-opCH4$pCH4_gC # original pred
+      for(a in unique(summGPP_allyr$modif)){
+        opGPP <- filter(summGPP_allyr, mdl==j, modif==a)
+        opER <- filter(summER_allyr, mdl==i, modif=="pER")
+        opCH4 <- filter(summCH4_allyr, mdl==k, modif=="pCH4")
+        ocb_m <- opGPP$pGPP_gC-opER$pER_gC-opCH4$pCH4_gC # new pred
+        ocb_var <- round((ocb_m-ocb)*100/ocb,2)
+        res <- data.frame(mdlGPP=j, mdlER=i, mdlCH4=k, modifT="GPP", modif=a, val=ocb_var)
+        out <- rbind(out, res)
+      }
+      for(b in unique(summER_allyr$modif)){
+        opGPP <- filter(summGPP_allyr, mdl==j, modif=="pGPP")
+        opER <- filter(summER_allyr, mdl==i, modif==b)
+        opCH4 <- filter(summCH4_allyr, mdl==k, modif=="pCH4")
+        ocb_m <- opGPP$pGPP_gC-opER$pER_gC-opCH4$pCH4_gC # new pred
+        ocb_var <- round((ocb_m-ocb)*100/ocb,2)
+        res <- data.frame(mdlGPP=j, mdlER=i, mdlCH4=k, modifT="GPP", modif=b, val=ocb_var)
+        out <- rbind(out, res)
+      }
+      for(c in unique(summCH4_allyr$modif)){
+        opGPP <- filter(summGPP_allyr, mdl==j, modif=="pGPP")
+        opER <- filter(summER_allyr, mdl==i, modif=="pER")
+        opCH4 <- filter(summCH4_allyr, mdl==k, modif==c)
+        ocb_m <- opGPP$pGPP_gC-opER$pER_gC-opCH4$pCH4_gC # new pred
+        ocb_var <- round((ocb_m-ocb)*100/ocb,2)
+        res <- data.frame(mdlGPP=j, mdlER=i, mdlCH4=k, modifT="GPP", modif=c, val=ocb_var)
+        out <- rbind(out, res)
+      }
+    }
+  }
+}
+
+out
+```
+

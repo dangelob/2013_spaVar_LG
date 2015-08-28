@@ -1,0 +1,323 @@
+---
+title: "Représentativité du modèle écosystème à l'échelle locale"
+author: "Benoît D'ANGELO"
+date: "20/08/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+---
+
+```{r load_env, eval=TRUE, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+library(laguettevarspa)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+# Path to the project
+proj_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG"
+# Path to graph output
+# savpth <- "../../graphs/relation_flux_T"
+
+
+# Allow plot a larger document
+options(width = 100)
+set_alias(w = "fig.width", h = "fig.height") 
+opts_chunk$set(echo = F)
+
+```
+
+
+```{r load_mdl_par}
+ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
+GPPpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPP_mdlpar.csv")
+GPPsatpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPPsat_mdlpar.csv")
+
+lERpar <- ERpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+
+lGPPpar <- GPPpar %>%
+  gather(par, value, 2)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+
+lGPPsatpar <- GPPsatpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+```
+
+
+```{r load_data, eval=TRUE, echo=FALSE, message=FALSE}
+datpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+# Get fluxes data with GPP
+dflux <- read.csv(file.path(datpath, "3F_data.csv"))%>%
+  mutate(date=as.Date(date))%>%
+  spread(F_type, flux)
+
+dfT <- svTemperature %>%
+  select(ID_camp, placette, Tair)
+
+dfVEG <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/svIVcov.csv") %>%
+  select(ID_camp, placette, IVcov) #, IVcov_area, A, H, M
+
+dfPAR <- svCtrlFact %>%
+  select(ID_camp, placette, PAR_Deb, PAR_Fin)%>%
+  gather("PAR_type", "PAR_val", 3:4)%>%
+  group_by(ID_camp, placette)%>%
+  summarise(PAR=mean(PAR_val, na.rm=T))
+
+df <- dflux %>%
+  left_join(., dfT, by=c("ID_camp", "placette"))%>%
+  left_join(., dfPAR, by=c("ID_camp", "placette"))%>%
+  left_join(., dfVEG, by=c("ID_camp", "placette"))%>%
+  mutate(timestamp=as.POSIXct(date, format="%Y-%m-%d"))%>%
+  select(-date)
+
+mdf <- df%>%
+  group_by(ID_camp)%>%
+  summarise(ER=mean(ER, na.rm=T),
+            GPP=mean(GPP, na.rm=T),
+            NEE=mean(NEE, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T)
+            )
+```
+
+```{r}
+get_pER <- function(name="Tair", df=df){
+  parER <- lERpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parER) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés_n")
+  }
+  
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("timestamp", "placette", names[1], names[2])]
+  }else{
+    dft <- df[,c("timestamp", "placette", name)]
+  }
+  
+  # Calcul pER en fonction du nb de par
+  pER <- c()
+  if(NROW(parER) == 2){
+    a <- parER$val[1]
+    b <- parER$val[2]
+    pER <- a*exp(b*dft[,3])
+  }else if(NROW(parER) == 3){
+    a <- parER$val[1]
+    b <- parER$val[2]
+    c <- parER$val[3]
+    pER <- (a*dft[,4]+c)*exp(b*dft[,3])
+  }else{
+    cat("nb de par > 3\n")
+  }
+  return(pER)
+  # return(as.vector(pER[,1]))
+}
+
+get_pGPP <- function(name="Tair", df=df){
+  parGPPsat <- lGPPsatpar %>%
+    filter(mdl == name)
+  parGPP <- lGPPpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parGPPsat) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés \n")
+  }
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("timestamp", "placette" ,"PAR", names[1], names[2])]
+  }else{
+    dft <- df[,c("timestamp", "placette", "PAR", name)]
+  }
+  # Calcul pER en fonction du nb de par
+  if(NCOL(dft) == 4){
+    a <- parGPPsat$val[1]
+    b <- parGPPsat$val[2]
+    c <- parGPPsat$val[3]
+    X1 <- dft[,4]
+    pGPPsat <- a * exp(-((X1-b)/c)^2)
+  }else if(NCOL(dft) == 5){
+    a <- parGPPsat$val[1]
+    b <- parGPPsat$val[2]
+    c <- parGPPsat$val[3]
+    X1 <- dft[,4]
+    X2 <- dft[,5]
+    pGPPsat <- (a*X2) * exp(-((X1-b)/c)^2)
+  }else{
+    cat("nb de par > 3\n")
+  }
+  # pGPPsat <- as.vector(pGPPsat[,1])
+  i <- parGPP$val[1]
+  pGPP = (i*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*i))
+  return(pGPP)
+}
+
+
+mdl_indic <- function(Y, pY){
+  # R2
+  devmean <- Y-(mean(Y, na.rm=TRUE)) # deviation à la moyenne
+  SSres <-sum((Y-pY)^2) # Total sum of squares
+  SStot <- sum(devmean^2) # Residual sum of squares
+  # 2 way to calculate
+  # R2 <- (SStot-SSres)/SStot 
+  R2 <- 1 - SSres/SStot
+  # Adjusted R2
+  N <- NROW(devmean) # sample size
+  p <- 1 # number of predictors
+  R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+  # RMSE
+  rmse_mdl <- sqrt(mean((pY-Y)^2,na.rm=TRUE))
+  nrmse_mdl <- 100*rmse_mdl/mean(Y,na.rm=TRUE)
+  # Collect usefull param
+  df <- data.frame(R2=R2,
+                   aR2=R2a,
+                   rmse=rmse_mdl,
+                   nrmse=nrmse_mdl)
+  return(df)
+}
+```
+
+
+```{r}
+# Liste des modèles à tester
+GPP_par <- c("Tair", "Tair_IVcov")
+ER_par <- c("Tair","Tair_IVcov")
+# Calcul prediction NEE
+# Si NEE GPP et ER dans la mm boucle : doublons pour ER et GPP
+predNEE <- data.frame()
+predGPP <- data.frame()
+predER <- data.frame()
+for (i in GPP_par){
+    pGPP <- get_pGPP(i, df)
+    tpGPP <- data.frame(timestamp=df$timestamp, 
+                        placette=df$placette,
+                        GPP=df$GPP, 
+                        pGPP=pGPP, mdl=i)
+    predGPP <- rbind(predGPP,tpGPP)
+  for (j in ER_par){
+    pER <- get_pER(j, df)
+    pNEE <- pGPP - pER
+    mdl_name <- paste0(i, "-", j)
+    tpNEE <- data.frame(timestamp=df$timestamp,
+                        placette=df$placette,
+                        NEE=df$NEE, 
+                        pNEE=pNEE, mdl=mdl_name)
+    predNEE <- rbind(predNEE,tpNEE)
+  }
+}
+for (j in ER_par){
+    pER <- get_pER(j, df)
+    tpER <- data.frame(timestamp=df$timestamp,
+                       placette=df$placette,
+                       ER=df$ER, 
+                       pER=pER, mdl=j)
+    predER <- rbind(predER,tpER)
+}
+
+```
+
+```{r}
+mdl_all <- mdf %>%
+  do(lmc_calc_all(.$ER, .$Tair))%>%
+  select(intercept, slope, aR2, equation)
+
+# 
+# t1 <- nls(ER ~ a * Tair + b, data=mdf, start=list(a=0.1, b=0.3))
+# t2 <- nls(ER ~ a * exp(b*Tair), data=mdf, start=list(a=0.1, b=0.3))
+# t3 <- nls(ER ~ a * exp(-b/((Tair+273.15)*8.314)), data=mdf, start=list(a=30, b=8000), trace=T, nls.control(maxiter=1000))
+# summary(t3)
+# 
+# tt <- m <- lm(log(mdf$ER)~mdf$Tair)
+
+mdl <- df %>%
+  group_by(placette) %>%
+  do(lmc_calc_all(.$ER, .$Tair))%>%
+  # filter(equation == "exponential")%>%
+  select(placette, intercept, slope, aR2, equation)
+
+plop <- mdl %>%
+  select(placette, aR2, equation)%>%
+  mutate(aR2=round(aR2,2))%>%
+  spread(equation, aR2)
+
+
+```
+
+
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=10}
+plt <- filter(predER, mdl == "Tair")
+ipER_Tair <- plt %>%
+  group_by(placette)%>%
+  do(mdl_indic(.$ER, .$pER))
+ggplot(plt, aes(x=ER, y=pER))+
+  geom_point(size=4, shape=21) +
+  geom_abline(a=1, linetype="dashed")+
+  # geom_smooth(method="lm", se=F)+
+  facet_wrap(~placette)+
+  theme_bw()
+
+
+plt <- filter(predER, mdl == "Tair_IVcov")
+ipER_TairIVcov <- plt %>%
+  group_by(placette)%>%
+  do(mdl_indic(.$ER, .$pER))
+ggplot(plt, aes(x=ER, y=pER))+
+  geom_point(size=4, shape=21) +
+  geom_abline(a=1, linetype="dashed")+
+  # geom_smooth(method="lm", se=F)+
+  facet_wrap(~placette)+
+  theme_bw()
+
+diffnrmse <- ipER_Tair$nrmse - ipER_TairIVcov$nrmse
+
+plt <- filter(predGPP, mdl == "Tair")
+ipGPP_Tair <- plt %>%
+  group_by(placette)%>%
+  do(mdl_indic(.$GPP, .$pGPP))
+ggplot(plt, aes(x=GPP, y=pGPP))+
+  geom_point(size=4, shape=21) +
+  geom_abline(a=1, linetype="dashed")+
+  # geom_smooth(method="lm", se=F)+
+  facet_wrap(~placette)+
+  theme_bw()
+
+plt <- filter(predGPP, mdl == "Tair_IVcov")
+ipGPP_TairIVcov<- plt %>%
+  group_by(placette)%>%
+  do(mdl_indic(.$GPP, .$pGPP))
+ggplot(plt, aes(x=GPP, y=pGPP))+
+  geom_point(size=4, shape=21) +
+  geom_abline(a=1, linetype="dashed")+
+  # geom_smooth(method="lm", se=F)+
+  facet_wrap(~placette)+
+  theme_bw()
+
+diffnrmse <- ipGPP_Tair$nrmse - ipGPP_TairIVcov$nrmse
+
+test <- ipGPP_TairIVcov
+test$diff <- diffnrmse
+test$nrmse_Tair <- ipGPP_Tair$nrmse
+
+mean(test$nrmse)
+sd(test$nrmse)
+mean(test$diff)
+mean(test$nrmse_Tair)
+sd(test$nrmse_Tair)
+
+hist(test$nrmse)
+hist(test$nrmse_Tair)
+
+```

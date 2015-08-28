@@ -1,0 +1,344 @@
+---
+title: "global ER model"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ER"
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+
+```{r load data}
+# Fichier VS -- Données ponctuelles
+## Flux
+dfER <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/3F_data.csv") %>%
+  filter(F_type == "ER")%>%
+  rename(netCO2F=flux)%>%
+  select(date, ID_camp, placette, netCO2F)
+
+## Vegetation
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/svIVcov.csv") %>%
+  select(ID_camp, placette, H, IVcov, IVcov_area)
+# dfveg <- svVegetation %>%
+#   group_by(ID_camp, placette)%>%
+#   filter(specie == "molinia")%>%
+#   mutate(area_m = mol_LtoS(height_m*10),
+#          area = area_m * number,
+#          cover = as.numeric(as.character(cover)))%>%
+#   select(ID_camp, placette, cover, number, area)
+# dfveg$area <- ifelse(dfveg$number == 0, 0, dfveg$area)
+
+## Ctrl facteur
+dfctrl <- svCtrlFact %>%
+  select(ID_camp, placette, WTL, RH_m)
+
+## Soil temperature
+dfT <- svTemperature %>%
+  select(ID_camp, placette,Tair, T5, T10, T15, T20, T25)
+
+## Merge all
+# données ponctuelles
+df_all <- dfER %>%
+  left_join(., dfT, by=c("ID_camp", "placette"))%>%
+  left_join(., dfctrl, by=c("ID_camp", "placette"))%>%
+  left_join(., dfveg, by=c("ID_camp", "placette"))
+
+# données moyennées
+df <- df_all %>%
+  group_by(ID_camp)%>%
+  summarise(netCO2F=mean(netCO2F, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            T5=mean(T5, na.rm=T),
+            T10=mean(T10, na.rm=T),
+            T15=mean(T15, na.rm=T),
+            T20=mean(T20, na.rm=T),
+            T25=mean(T25, na.rm=T),
+            WTL=mean(WTL, na.rm=T),
+            RH_m=mean(RH_m, na.rm=T),
+            H=mean(H, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T),
+            IVcov_area=mean(IVcov_area, na.rm=T)
+            )
+
+```
+
+
+```{r functions}
+pER_T <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~T25, xlab="température à -25 cm (°C)",ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+pER_Tair <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~Tair, xlab="température de l'air (°C)",ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+pmesmod <- function(X){
+par(mar=c(4,4.5,.5,.5))
+plot(netCO2F~predman, ylim=c(0,20), xlim=c(0,20),xlab=expression(paste("Re modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
+}
+
+presmod <- function(X){
+par(mar=c(4,4,.5,.5))
+plot(resi~predman, xlab="valeurs prédites", ylab="résidus", data=X)
+}
+```
+
+
+# ER representation
+
+According to <a href="../../relation_flux_T/ER_T.html"> this document </a> the best ER representation with temperature at global scale is found by using an exponential model with -25 cm depth temperature.
+
+# Temperature, ER~aexp(bTair)
+
+```{r calc mdl}
+df_mT <- df
+
+# Linear version ------------------------
+# mT <- lm(log(netCO2F)~Tair, data = df_mT, na.action = na.exclude)
+# summary(mT)
+# a <- exp(coef(mT)[1]) # a <- 0.3400943 
+# b <- coef(mT)[2]      # b <- 0.1034424
+# 
+# # Attention à la linéarisation
+# devmean <- log(df_mT$netCO2F)-(mean(log(df_mT$netCO2F))) # deviation à la moyenne
+# 
+# # Calcul résidus
+# df_mT$resi <- residuals(mT)
+# df_mT$predman <- a*exp(b*df_mT$Tair)
+# # Si calcul du R2 sur données dé-transformée : R2=0.9
+# # Calcul manuel du R2
+# SSres <-sum(df_mT$resi^2) # Total sum of squares
+# SStot <- sum(devmean^2) # Residual sum of squares
+# # 2 way to calculate
+# R2 <- (SStot-SSres)/SStot 
+# R2 <- 1 - SSres/SStot
+# # Adjusted R2
+# N <- NROW(devmean) # sample size
+# p <- 1 # number of predictors
+# R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+# 
+# rmse <- sqrt(mean((df_mT$predman-df_mT$netCO2F)^2,na.rm=TRUE))
+
+
+# Non linear version --------------------
+mT <- nls(netCO2F ~ a * exp(b*Tair), data=df_mT, start=list(a=0.3, b=0.1), na.action = na.exclude)
+a <- coef(mT)[1] # a <- 0.3766245
+b <- coef(mT)[2] # b <- 0.1006095
+
+devmean <- df_mT$netCO2F-(mean(df_mT$netCO2F)) # deviation à la moyenne
+
+## Calcul résidus
+### automatique
+df_mT$resi <- residuals(mT)
+### manuel
+df_mT$predman <- a*exp(b*df_mT$Tair)
+df_mT$resiman <- df_mT$netCO2F-df_mT$predman
+
+# Calcul manuel R2 ----------------------
+## resi et resiman : resultats identiques
+SSres <-sum(df_mT$resiman^2) # Total sum of squares
+SStot <- sum(devmean^2) # Residual sum of squares
+# 2 way to calculate
+R2 <- (SStot-SSres)/SStot 
+R2 <- 1 - SSres/SStot
+# Adjusted R2
+N <- NROW(devmean) # sample size
+p <- 1 # number of predictors
+R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+
+
+# Autre indicateurs ---------------------
+Q10 <- exp(10*b)
+rmse <- sqrt(mean((df_mT$predman-df_mT$netCO2F)^2,na.rm=TRUE))
+
+# prediction sur valeurs ponctuelles ----
+df_all$predman <- a*exp(b*df_all$Tair)
+df_all$resi <- df_all$netCO2F-df_all$predman
+```
+
+```{r, fig.height=4}
+## Valeurs moyennes
+par(mfrow=c(1,3))
+pER_Tair(df_mT)
+curve(a*exp(b*x), add=T, col="blue")
+pmesmod(df_mT)
+presmod(df_mT)
+par(mfrow=c(1,1))
+## Valeurs ponctuelles
+par(mfrow=c(1,3))
+pER_Tair(df_all)
+curve(a*exp(b*x), add=T, col="blue")
+pmesmod(df_all)
+presmod(df_all)
+par(mfrow=c(1,1))
+```
+
+### model equation
+
+ER = `r a` * exp(`r b` * Tair)
+
+R2 = `r R2a` (lm)
+
+rmse = `r rmse` (lm)
+
+aic = `r AIC(mT)` (lm)
+
+```{r exprt_fig, error=FALSE, results="hide"}
+cairo_pdf(file.path(savpth, "avgER_Tair_ecosyt.pdf"), width=6.5, height=5)
+pER_T(df_mT)
+curve(a*exp(b*x), add=T, col="blue")
+dev.off()
+
+cairo_pdf(file.path(savpth, "avgER_Tair_ecosyt_mesmod.pdf"), width=5, height=5)
+pmesmod(df_mT)
+dev.off()
+
+
+cairo_pdf(file.path(savpth, "avgER_Tair_ecosyt_resmod.pdf"), width=5, height=5)
+presmod(df_mT)
+dev.off()
+```
+
+
+
+
+## Residual vs other controlling factors
+
+```{r, fig.height=4}
+par(mfrow=c(1,3))
+plot(df_mT$resi~df_mT$WTL, main="vs. WTL") 
+plot(df_mT$resi~df_mT$RH_m, main="vs. RH") 
+plot(df_mT$resi~df_mT$IVcov, main="vs. IVcov") 
+par(mfrow=c(1,1))
+par(mfrow=c(1,3))
+plot(df_all$resi~df_all$WTL, main="vs. WTL") 
+plot(df_all$resi~df_all$RH_m, main="vs. RH") 
+plot(df_all$resi~df_all$IVcov, main="vs. IVcov") 
+par(mfrow=c(1,1))
+```
+
+# Temperature and IV ER~a*exp(b*Tair)+c*IVcov
+
+```{r}
+df_mTIV <- df
+
+# Non linear version --------------------
+# mTIV <- nls(netCO2F ~ a * exp(b*Tair) + c * IVcov, data=df_mTIV, start=list(a=0.3, b=0.1, c=1), na.action = na.exclude)
+mTIV <- nls(netCO2F ~ (a*IVcov + c) * exp(b*Tair), data=df_mTIV, start=list(a=0.3, b=0.1, c=1), na.action = na.exclude)
+a <- coef(mTIV)[1] # a <- 0.3766245
+b <- coef(mTIV)[2] # b <- 0.1006095
+c <- coef(mTIV)[3] # b <- 0.1006095
+
+
+devmean <- df_mTIV$netCO2F-(mean(df_mTIV$netCO2F)) # deviation à la moyenne
+
+## Calcul résidus
+### automatique
+df_mTIV$resi <- residuals(mTIV)
+### manuel
+# df_mTIV$predman <- a*exp(b*df_mTIV$Tair)+c*df_mTIV$IVcov
+df_mTIV$predman <- (a*df_mTIV$IVcov + c)*exp(b*df_mTIV$Tair)
+df_mTIV$resiman <- df_mTIV$netCO2F-df_mTIV$predman
+
+# Calcul manuel R2 ----------------------
+## resi et resiman : resultats identiques
+SSres <-sum(df_mTIV$resiman^2) # Total sum of squares
+SStot <- sum(devmean^2) # Residual sum of squares
+# 2 way to calculate
+R2 <- (SStot-SSres)/SStot 
+R2 <- 1 - SSres/SStot
+# Adjusted R2
+N <- NROW(devmean) # sample size
+p <- 1 # number of predictors
+R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+
+
+# Autre indicateurs ---------------------
+Q10 <- exp(10*b)
+rmse <- sqrt(mean((df_mTIV$predman-df_mTIV$netCO2F)^2,na.rm=TRUE))
+
+# prediction sur valeurs ponctuelles ----
+# df_all$predman <- a*exp(b*df_all$Tair)
+df_all$predman <- (a*df_all$IVcov + c)*exp(b*df_all$Tair)
+df_all$resi <- df_all$netCO2F-df_all$predman
+```
+
+### model equation
+
+ER = `r a` * exp(`r b` * Tair) + c * IVcov
+
+R2 = `r R2a` (lm)
+
+rmse = `r rmse` (lm)
+
+aic = `r AIC(mTIV)` (lm)
+
+
+```{r, fig.height=4}
+par(mfrow=c(1,3))
+pER_Tair(df_mTIV)
+pmesmod(df_mTIV)
+presmod(df_mTIV)
+par(mfrow=c(1,1))
+par(mfrow=c(1,3))
+pER_Tair(df_all)
+pmesmod(df_all)
+presmod(df_all)
+par(mfrow=c(1,1))
+```
+
+## Residual vs other controlling factors
+
+```{r, fig.height=4}
+par(mfrow=c(1,3))
+plot(df_mTIV$resi~df_mTIV$WTL, main="vs. WTL") 
+plot(df_mTIV$resi~df_mTIV$RH_m, main="vs. RH") 
+plot(df_mTIV$resi~df_mTIV$IVcov, main="vs. IVcov") 
+par(mfrow=c(1,1))
+par(mfrow=c(1,3))
+plot(df_all$resi~df_all$WTL, main="vs. WTL") 
+plot(df_all$resi~df_all$RH_m, main="vs. RH") 
+plot(df_all$resi~df_all$IVcov, main="vs. IVcov") 
+par(mfrow=c(1,1))
+```
+
+
+
+
+***
+***
+***
+
+# Diagnostic plot

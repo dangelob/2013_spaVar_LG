@@ -43,14 +43,16 @@ dfER <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_
   select(date, ID_camp, placette, netCO2F)
 
 ## Vegetation
-dfveg <- svVegetation %>%
-  group_by(ID_camp, placette)%>%
-  filter(specie == "molinia")%>%
-  mutate(area_m = mol_LtoS(height_m*10),
-         area = area_m * number,
-         cover = as.numeric(as.character(cover)))%>%
-  select(ID_camp, placette, cover, number, area)
-dfveg$area <- ifelse(dfveg$number == 0, 0, dfveg$area)
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/svIVcov.csv") %>%
+  select(ID_camp, placette, H, IVcov, IVcov_area)
+# dfveg <- svVegetation %>%
+#   group_by(ID_camp, placette)%>%
+#   filter(specie == "molinia")%>%
+#   mutate(area_m = mol_LtoS(height_m*10),
+#          area = area_m * number,
+#          cover = as.numeric(as.character(cover)))%>%
+#   select(ID_camp, placette, cover, number, area)
+# dfveg$area <- ifelse(dfveg$number == 0, 0, dfveg$area)
 
 ## Ctrl facteur
 dfctrl <- svCtrlFact %>%
@@ -173,11 +175,11 @@ dev.off()
 
 ## Residual vs other controlling factors
 
-```{r, fig.height=9}
-par(mfrow=c(2,2))
+```{r, fig.height=4}
+par(mfrow=c(1,3))
 plot(df_mT$resi~df_mT$WTL, main="vs. WTL") 
 plot(df_mT$resi~df_mT$RH_m, main="vs. RH") 
-plot(df_mT$resi~df_mT$area, main="vs. pseudoLAI") 
+plot(df_mT$resi~df_mT$IVcov, main="vs. IVcov") 
 
 par(mfrow=c(1,1))
 ```
@@ -291,12 +293,12 @@ dev.off()
 
 
 
-# Temperature and molinia cover ER~(aCOVER+b)*exp(cT25)
+# Temperature and molinia and erio cover ER~(aCOVER+b)*exp(cT25)
 ```{r}
 # Non linear version --------------------
 df_mmolcov <- df
 
-mmolcov <- nls(netCO2F~(a*cover + b)*exp(c*T25), data = df_mmolcov, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+mmolcov <- nls(netCO2F~(a*H + b)*exp(c*T25), data = df_mmolcov, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
 
 a <- coef(mmolcov)[1]
 b <- coef(mmolcov)[2]
@@ -304,7 +306,7 @@ c <- coef(mmolcov)[3]
 
 df_mmolcov$resi <- residuals(mmolcov)
 df_mmolcov$pred <- predict(mmolcov)
-df_mmolcov$predman <- (a*df_mmolcov$cover + b)*exp(c*df_mmolcov$T25)
+df_mmolcov$predman <- (a*df_mmolcov$H + b)*exp(c*df_mmolcov$T25)
 
 rmse_ER_molCOVT25 <- sqrt(mean((df_mmolcov$predman-df_mmolcov$netCO2F)^2,na.rm=TRUE))
 ```
@@ -320,7 +322,7 @@ par(mfrow=c(1,1))
 
 ### model equation
 
-ER = (`r a` * cover + `r b`) * exp(`r c` * T25)
+ER = (`r a` * H + `r b`) * exp(`r c` * T25)
 
 ### diagnostic values
 
@@ -345,11 +347,12 @@ dev.off()
 
 # Temperature and LAI ER~(aLAI+b)*exp(cT25)
 ## NON PERTINENT CAR PAS DE DONNÉES EN 2013
+## Test avec cover
 ```{r}
 # Non linear version --------------------
 df_mlai <- df
 
-mlai <- nls(netCO2F~(a*area + b)*exp(c*T25), data = df_mlai, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+mlai <- nls(netCO2F~(a*IVcov + b)*exp(c*T25), data = df_mlai, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
 
 a <- coef(mlai)[1]
 b <- coef(mlai)[2]
@@ -357,7 +360,7 @@ c <- coef(mlai)[3]
 
 df_mlai$resi <- residuals(mlai)
 df_mlai$pred <- predict(mlai)
-df_mlai$predman <- (a*df_mlai$area + b)*exp(c*df_mlai$T25)
+df_mlai$predman <- (a*df_mlai$IVcov + b)*exp(c*df_mlai$T25)
 
 rmse_ER_LAIT25 <- sqrt(mean((df_mlai$predman-df_mlai$netCO2F)^2,na.rm=TRUE))
 ```
@@ -406,7 +409,7 @@ dev.off()
 # Non linear version --------------------
 df_mlaiwtl <- df
 
-mlaiwtl <- nls(netCO2F~((a*WTL) + (b*area))*exp(c*T25), data = df_mlaiwtl, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+mlaiwtl <- nls(netCO2F~((a*WTL) + (b*IVcov))*exp(c*T25), data = df_mlaiwtl, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
 
 a <- coef(mlaiwtl)[1]
 b <- coef(mlaiwtl)[2]
@@ -414,7 +417,7 @@ c <- coef(mlaiwtl)[3]
 
 df_mlaiwtl$resi <- residuals(mlaiwtl)
 df_mlaiwtl$pred <- predict(mlaiwtl)
-df_mlaiwtl$predman <- ((a*df_mlaiwtl$WTL) + (b*df_mlaiwtl$area))*exp(c*df_mlaiwtl$T25)
+df_mlaiwtl$predman <- ((a*df_mlaiwtl$WTL) + (b*df_mlaiwtl$IVcov))*exp(c*df_mlaiwtl$T25)
 
 rmse_ER_LAIWTLT25 <- sqrt(mean((df_mlaiwtl$predman-df_mlaiwtl$netCO2F)^2,na.rm=TRUE))
 ```
@@ -430,7 +433,7 @@ par(mfrow=c(1,1))
 
 ### model equation
 
-ER = ((`r a` * WTL) + (`r b` * area) * exp(`r c` * T25)
+ER = ((`r a` * WTL) + (`r b` * IVcov) * exp(`r c` * T25)
 
 ### diagnostic values
 

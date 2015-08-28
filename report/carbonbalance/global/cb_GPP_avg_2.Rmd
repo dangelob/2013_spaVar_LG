@@ -1,0 +1,323 @@
+
+---
+title: "GPP"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+
+```{r param_ER_GPPsat}
+GPPsatpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPPsat_mdlpar.csv")
+
+lGPPsatpar <- GPPsatpar %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+```
+
+```{r functions}
+get_pGPP <- function(name="Tair", df=df, pred=TRUE){
+  temp <- lGPPsatpar %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(temp) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés \n")
+  }
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(grepl("_", name)){
+    names <- unlist(strsplit(name, "_"))
+    dft <- df[,c("GPP", "PAR", names[1], names[2])]
+  }else{
+    dft <- df[,c("GPP", "PAR", name)]
+  }
+  # Calcul pER en fonction du nb de par
+  if(NCOL(dft) == 3){
+    a <- temp$val[1]
+    b <- temp$val[2]
+    c <- temp$val[3]
+    X1 <- dft[,3]
+    pGPPsat <- a * exp(-((X1-b)/c)^2)
+  }else if(NCOL(dft) == 4){
+    a <- temp$val[1]
+    b <- temp$val[2]
+    c <- temp$val[3]
+    X1 <- dft[,3]
+    X2 <- dft[,4]
+    pGPPsat <- (a*X2) * exp(-((X1-b)/c)^2)
+  }else{
+    cat("nb de par > 3\n")
+  }
+  pGPPsat <- as.vector(pGPPsat[,1])
+  # Calcul prediction GPP
+  m <- nls(GPP ~ a*PAR*pGPPsat/(pGPPsat+PAR*a),
+             data=df,
+             start=list(a=0.005))
+  i <- coef(m)[1]
+  # pGPP = (i*dft$PAR*pGPPsat/(sqrt(pGPPsat^2+(dft$PAR*i)^2)))
+  # pGPP = (i*dft$PAR*12/(12+dft$PAR*i))
+  pGPP = (i*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*i))
+  indic <- data.frame(a=i, AIC=AIC(m), BIC=BIC(m))
+  if(pred){
+    return(pGPP)
+  }else{
+    return(indic)
+  }
+}
+
+mdl_indic <- function(Y, pY, mdl){
+  mdl <- unique(mdl)
+  if(grepl("_", mdl)){
+    p <- 2
+  }else{ p <- 1}
+  # R2
+  devmean <- Y-(mean(Y, na.rm=TRUE)) # deviation à la moyenne
+  SSres <-sum((Y-pY)^2) # Total sum of squares
+  SStot <- sum(devmean^2) # Residual sum of squares
+  # 2 way to calculate
+  # R2 <- (SStot-SSres)/SStot 
+  R2 <- 1 - SSres/SStot
+  # Adjusted R2
+  N <- NROW(devmean) # sample size
+  # p <- 1 # number of predictors
+  R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+  # RMSE
+  rmse_mdl <- sqrt(mean((pY-Y)^2,na.rm=TRUE))
+  nrmse_mdl <- 100*rmse_mdl/mean(Y,na.rm=TRUE)
+  # Collect usefull param
+  df <- data.frame(R2=R2,
+                   aR2=R2a,
+                   rmse=rmse_mdl,
+                   nrmse=nrmse_mdl)
+  return(df)
+}
+
+
+## Plotting functions
+pmesmod <- function(Y, pY){
+par(mar=c(4,4.5,.5,.5))
+plot(Y~pY, 
+     ylim=c(0,15), xlim=c(0,15),
+     xlab=expression(paste("GPP modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("GPP mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=df)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
+}
+
+presmod <- function(Y, pY){
+par(mar=c(4,4,.5,.5))
+plot((Y-pY)~pY, xlab="valeurs prédites", ylab="résidus")
+}
+```
+
+
+
+```{r load data}
+# Fichier VS -- Données ponctuelles
+## Flux
+df3F <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/3F_data.csv") %>%
+  spread(F_type, flux)
+
+## Soil temperature
+dfT <- svTemperature %>%
+  select(ID_camp, placette, Tair, T5)
+
+## Weather
+dfwr <- wrLGT %>%
+  select(timestamp, Ta, Ts_1)%>%
+  filter(timestamp >= as.POSIXct("01/01/2013", format = "%d/%m/%Y"))%>%
+  # mutate(timestamp = as.factor(timestamp))%>%
+  rename(date=timestamp, T5c=Ts_1, Tac=Ta)
+# moyenne journalière ? ou récup timestamp NEE...
+
+## Ctrl facteur
+dfctrl <- svCtrlFact %>%
+  select(ID_camp, placette, WTL, RH_m, PAR_Deb, PAR_Fin)%>%
+  gather(type, val, 5:6)%>%
+  group_by(ID_camp, placette)%>%
+  summarise(WTL=mean(WTL, na.rm=T), PAR=mean(val, na.rm=T), RH_m=mean(RH_m, na.rm=T))%>%
+  ungroup()
+
+## Vegetation
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/svIVcov.csv") %>%
+  select(ID_camp, placette, H, IVcov, IVcov_area)
+
+## Merge data
+### data
+df_temp <- df3F %>%
+  left_join(., dfT, by=c("ID_camp", "placette")) %>%
+  left_join(., dfctrl, by=c("ID_camp", "placette")) %>%
+  left_join(., dfveg, by=c("ID_camp", "placette")) %>%
+  do(na.omit(.))%>%
+  mutate(date = as.Date(date))%>%
+  arrange(placette)
+
+### Averaged data
+df_temp_m <- df_temp %>%
+  group_by(ID_camp)%>%
+  summarise(date=min(date, na.rm=T),
+            # ER=mean(ER, na.rm=T),
+            GPP=mean(GPP, na.rm=T),
+            # NEE=mean(NEE, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            T5=mean(T5, na.rm=T),
+            PAR=mean(PAR, na.rm=T),
+            WTL=mean(WTL, na.rm=T),
+            RH=mean(RH_m, na.rm=T),
+            # A=mean(A, na.rm=T),
+            H=mean(H, na.rm=T),
+            # M=mean(M, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T),
+            IVcov_area=mean(IVcov_area, na.rm=T)
+            )
+
+```
+
+```{r mdl_pred}
+df <- df_temp_m %>%
+  select(date, GPP, PAR, Tair, T5, IVcov, H, RH)
+# Ajout de date pour pouvoir recoller les facteurs aux predictions ?
+
+# Liste des modèles à tester
+GPP_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_IVcov")
+
+# Calcul prediction NEE
+GPPpred <- data.frame()
+GPPpar <- data.frame()
+for (i in GPP_par){
+    # mdl pred
+    pGPP <- get_pGPP(i, df, pred = T) # get prediction
+    temp <- data.frame(GPP=df$GPP, mdl=i, pGPP=pGPP)
+    GPPpred <- rbind(GPPpred,temp)
+    # mdl par
+    par <- get_pGPP(i, df, pred = F) # get model param
+    tmp <- cbind(mdl=i, par)
+    # tmp <- data.frame(mdl=i, a=par)
+    GPPpar <- rbind(GPPpar, tmp)
+}
+
+# Export paramètre mdl GPP
+filepath_mdl <- paste0(outpth, "/GPP_mdlpar.csv")
+write.csv(GPPpar[,1:2], filepath_mdl, quote=F, row.names=F)
+```
+
+```{r}
+GPPind <- select(GPPpar, -a)
+# Tableau resultats modèles
+ldf <- GPPpred %>%
+  group_by(mdl)%>%
+  do(mdl_indic(.$GPP, .$pGPP, mdl=.$mdl))%>%
+  ungroup()%>%
+  inner_join(., GPPind)%>%
+  arrange(desc(aR2))
+
+ldf
+```
+
+## Tair
+
+```{r, fig.width=4, fig.height=4}
+dat <- filter(GPPpred, mdl == "Tair")
+pmesmod(dat$GPP, dat$pGPP)
+presmod(dat$GPP, dat$pGPP)
+mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
+```
+
+## Tair + IVcov
+
+```{r, fig.width=4, fig.height=4}
+dat <- filter(GPPpred, mdl == "Tair_IVcov")
+pmesmod(dat$GPP, dat$pGPP)
+presmod(dat$GPP, dat$pGPP)
+mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
+```
+
+## T5
+
+```{r, fig.width=4, fig.height=4}
+dat <- filter(GPPpred, mdl == "T5")
+pmesmod(dat$GPP, dat$pGPP)
+presmod(dat$GPP, dat$pGPP)
+iT5 <- mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
+iT5
+```
+
+## T5 + IVcov
+
+```{r, fig.width=4, fig.height=4}
+dat <- filter(GPPpred, mdl == "T5_IVcov")
+pmesmod(dat$GPP, dat$pGPP)
+presmod(dat$GPP, dat$pGPP)
+iT5_IV <- mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
+iT5_IV
+```
+
+# Figures
+
+```{r, fig.height=8, result="hide"}
+dat <- filter(GPPpred, mdl == "Tair")
+labf <- format(mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl), digits=2, nsmall=2)
+lab <- paste0(
+  "y = ", labf$a, " * exp(", labf$b, "*T5)",
+  "\nR² = ", labf$aR2, 
+  "\nRMSE = ", labf$rmse,
+  "\nNRMSE = ", labf$nrmse, " %", sep="")
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPP_Tair_mdl_mesmod.pdf"), width=10, height=4)
+par(mfrow=c(1,2))
+pmesmod(dat$GPP, dat$pGPP)
+text(x=.4, y=12, labels=lab, adj=0)
+presmod(dat$GPP, dat$pGPP)
+par(mfrow=c(1,1))
+dev.off()
+
+dat <- filter(GPPpred, mdl == "Tair_IVcov")
+labf <- format(mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl), digits=2, nsmall=2)
+lab <- paste0(
+  "y = ", labf$a, " * exp(", labf$b, "*T5)",
+  "\nR² = ", labf$aR2, 
+  "\nRMSE = ", labf$rmse,
+  "\nNRMSE = ", labf$nrmse, " %", sep="")
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPP_TairIV_mdl_mesmod.pdf"), width=10, height=4)
+par(mfrow=c(1,2))
+pmesmod(dat$GPP, dat$pGPP)
+text(x=.4, y=12, labels=lab, adj=0)
+presmod(dat$GPP, dat$pGPP)
+par(mfrow=c(1,1))
+dev.off()
+
+
+```
+

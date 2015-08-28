@@ -1,0 +1,621 @@
+
+---
+title: "Échange Net de l'Écosystème : model"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
+# savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ENE"
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/mdl_ecosyst"
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+```{r functions}
+# Function to calculate an rmse value
+getRMSE <- function(pred, mes){
+  return(sqrt(mean((pred-mes)^2,na.rm=TRUE)))
+}
+
+# Function to calculate rmse for each p7
+getp7RMSE <- function(df){
+  temp <- df %>%
+    select(placette, NEE, predNEE)%>%
+    group_by(placette)%>%
+    summarise(rmse = getRMSE(predNEE, NEE))
+  return(temp)
+}
+
+
+mdl_sel <- function(df, select){
+  if(select == "Tair"){
+    m <- nls(NEE ~ (a*PAR*predGPPsat_Tair/(predGPPsat_Tair+PAR*a)-predER_Tair) , data=df, start=list(a=0.005))
+  }else if(select == "TairH"){
+    m <- nls(NEE ~ (a*PAR*predGPPsat_Tair_H/(predGPPsat_Tair_H+PAR*a)-predER_Tair) , data=df, start=list(a=0.005))
+  }else if(select == "TairHH"){
+    m <- nls(NEE ~ (a*PAR*predGPPsat_Tair_H/(predGPPsat_Tair_H+PAR*a)-predER_Tair_H) , data=df, start=list(a=0.005))
+  }else{
+    cat("erreur dans par select")
+  }
+  return(m)
+}
+
+getmdlo <- function(mdl){
+  m <- mdl
+  # Export df
+  odf <- df %>%
+    select(ID_camp, NEE)%>%
+    mutate(predNEE = predict(m), resNEE = resid(m))
+  return(odf)
+}
+getmdlaic <- function(mdl){
+  m <- mdl
+  return(AIC(m))
+}
+
+
+## Plotting functions
+pENE_T <- function(X){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(netCO2F~T25, xlab="température à -25 cm (°C)",ylab=expression(paste("Re mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+pmesmod <- function(X){
+par(mar=c(4,4.5,.5,.5))
+plot(NEE~predNEE, ylim=c(-3,10), xlim=c(-3,10),xlab=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep=""))
+, ylab=expression(paste("ENE mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
+}
+
+presmod <- function(X){
+par(mar=c(4,4,.5,.5))
+plot(resNEE~predNEE, xlab="valeurs prédites", ylab="résidus", data=X)
+}
+```
+
+
+```{r param_ER_GPPsat}
+## PARAM ER
+# Tair ; rmse = 0.74 ; AIC = 50.7 ; R2 = 0.90
+aER_m1 <- 0.376624351
+bER_m1 <- 0.10060951
+# Tair + h ; rmse = 0.52 ; AIC = 38.7 ; R2 = 0.95
+aER_m2 <- 0.005638748
+bER_m2 <- 0.07995718
+cER_m2 <- 0.3558067
+# T5 + RH ; rmse = 0.47 ; AIC = 34.9 ; R2 = 0.96
+aER_m3 <- -0.005685157
+bER_m3 <- 0.11661466
+cER_m3 <- 0.9644349
+
+## PARAM GPPsat
+# Tair (June) ; rmse 2.41 ; AIC = 95.45 ; R2 = 0.65
+aGPPsat_m1 <- 22.1346824
+bGPPsat_m1 <- 48.71011
+cGPPsat_m1 <- 24.65021
+## PARAM GPPsat
+# Tair + H (June) ; rmse 1.43 ; AIC = 75.69 ; R2 = 0.88
+aGPPsat_m2 <- 0.3871823
+bGPPsat_m2 <- 66.47534
+cGPPsat_m2 <- 47.05972
+```
+
+```{r load data}
+# Fichier VS -- Données ponctuelles
+## Flux
+df3F <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/3F_data.csv") %>%
+  spread(F_type, flux)
+
+## Soil temperature
+dfT <- svTemperature %>%
+  select(ID_camp, placette, Tair, T5)
+
+## Ctrl facteur
+dfctrl <- svCtrlFact %>%
+  select(ID_camp, placette, WTL, RH_m, PAR_Deb, PAR_Fin)%>%
+  gather(type, val, 5:6)%>%
+  group_by(ID_camp, placette)%>%
+  summarise(WTL=mean(WTL, na.rm=T), PAR=mean(val, na.rm=T), RH_m=mean(RH_m, na.rm=T))%>%
+  ungroup()
+
+## Vegetation
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/svIVcov.csv") %>%
+  select(ID_camp, placette, H, IVcov, IVcov_area)
+
+## Merge data
+df_temp <- df3F %>%
+  left_join(., dfT, by=c("ID_camp", "placette")) %>%
+  left_join(., dfctrl, by=c("ID_camp", "placette")) %>%
+  left_join(., dfveg, by=c("ID_camp", "placette")) %>%
+  do(na.omit(.))%>%
+  mutate(date = as.Date(date))%>%
+  arrange(placette)
+
+df_temp_m <- df_temp %>%
+  group_by(ID_camp)%>%
+  summarise(date=min(date, na.rm=T),
+            ER=mean(ER, na.rm=T),
+            GPP=mean(GPP, na.rm=T),
+            NEE=mean(NEE, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            T5=mean(T5, na.rm=T),
+            PAR=mean(PAR, na.rm=T),
+            WTL=mean(WTL, na.rm=T),
+            RH_m=mean(RH_m, na.rm=T),
+            # A=mean(A, na.rm=T),
+            H=mean(H, na.rm=T),
+            # M=mean(M, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T),
+            IVcov_area=mean(IVcov_area, na.rm=T)
+            )
+
+## ER and GPPsat prediction calculation
+df <- df_temp_m %>%
+  mutate(predER_Tair = aER_m1*exp(bER_m1*Tair)) %>%
+  mutate(predER_Tair_H = (aER_m2*H+cER_m2)*exp(bER_m2*Tair))%>%
+  mutate(predER_T5_RH = (aER_m3*RH_m+cER_m3)*exp(bER_m3*T5))%>%
+  mutate(predGPPsat_Tair = aGPPsat_m1 * exp(-((Tair-bGPPsat_m1)/cGPPsat_m1)^2))%>%
+  mutate(predGPPsat_Tair_H = (aGPPsat_m2 * H) * exp(-((Tair-bGPPsat_m2)/cGPPsat_m2)^2)) 
+```
+
+
+```{r mdl_calc}
+# ER Tair ; GPPsat Tair
+dfTair_m <- mdl_sel(df, "Tair")
+dfTair <- getmdlo(dfTair_m)
+aic_Tair <- getmdlaic(dfTair_m)
+rmse_Tair <- getRMSE(dfTair$predNEE, dfTair$NEE)
+
+# ER Tair ; GPPsat Tair + H
+dfTairH_m <- mdl_sel(df, "TairH")
+dfTairH <- getmdlo(dfTairH_m)
+aic_TairH <- getmdlaic(dfTairH_m)
+rmse_TairH <- getRMSE(dfTairH$predNEE, dfTairH$NEE)
+
+# ER Tair + H ; GPPsat Tair + H
+dfTairHH_m <- mdl_sel(df, "TairHH")
+dfTairHH <- getmdlo(dfTairHH_m)
+aic_TairHH <- getmdlaic(dfTairHH_m)
+rmse_TairHH <- getRMSE(dfTairHH$predNEE, dfTairHH$NEE)
+
+
+# ER T25 + WTL ; GPPsat T15 + IVcov
+# dfT15Veg_T25WTL_m <- mdl_sel(df, "T15IVcov_T25WTL")
+# dfT15Veg_T25WTL <- getmdlo(dfT15Veg_T25WTL_m)
+# aic_T15Veg_T25WTL <- getmdlaic(dfT15Veg_T25WTL_m)
+# rmse_T15Veg_T25WTL <- getRMSE(dfT15Veg_T25WTL$predNEE, dfT15Veg_T25WTL$NEE)
+```
+
+## GPPsat : Tair -- ER : Tair
+
+```{r, fig.width=4, fig.height=4}
+# par(mfrow=c(2,2))
+pmesmod(dfTair)
+presmod(dfTair)
+```
+
+## GPPsat : Tair + H -- ER : Tair
+
+```{r, fig.width=4, fig.height=4}
+pmesmod(dfTairH)
+presmod(dfTairH)
+```
+
+## GPPsat : Tair + H -- ER : Tair + H
+
+```{r, fig.width=4, fig.height=4}
+pmesmod(dfTairHH)
+presmod(dfTairHH)
+# par(mfrow=c(1,1))
+```
+
+
+
+```{r exprt_fig, error=FALSE, results="hide"}
+# GPPsat : Tair ; ER : Tair
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance", "ENE_Tair_mdl.pdf"), width=10, height=4)
+par(mfrow=c(1,2))
+pmesmod(dfTair)
+presmod(dfTair)
+par(mfrow=c(1,1))
+dev.off()
+
+# GPPsat : Tair + H ; ER : Tair + H
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance", "ENE_TairHH_mdl.pdf"), width=10, height=4)
+par(mfrow=c(1,2))
+pmesmod(dfTairHH)
+presmod(dfTairHH)
+par(mfrow=c(1,1))
+dev.off()
+
+```
+
+### diagnostic values
+
+rmse = `r rmse_Tair` (nls, GPPsat: Tair ; ER: Tair)
+
+aic = `r aic_Tair` (nls, GPPsat: Tair ; ER: Tair)
+
+***
+
+rmse = `r rmse_TairH` (nls,  GPPsat: Tair + H ; ER: Tair)
+
+aic = `r aic_TairH` (nls,  GPPsat: Tair + H ; ER: Tair)
+
+***
+
+rmse = `r rmse_TairHH` (nls,  GPPsat: Tair + H ; ER: Tair + H)
+
+aic = `r aic_TairHH` (nls,  GPPsat: Tair + H ; ER: Tair + H)
+
+# Détails placettes
+
+## RMSE values
+```{r, eval=FALSE}
+p7rmse <- getp7RMSE(dfTair) %>%
+  rename(rmse_Tair=rmse)%>%
+  left_join(., getp7RMSE(dfTairH))%>%
+  rename(rmse_TairH=rmse)%>%
+  left_join(., getp7RMSE(dfTairHH))%>%
+  rename(rmse_TairHH=rmse)
+
+
+p7rmse
+# filepath <- paste0(outpth, "/ENE_mdl_rmse.csv")
+# write.csv(p7rmse, filepath, quote=F, row.names=F)
+```
+
+### Relation nb de pt vs RMSE
+
+Vérification de l'absence de relation en une augmentation de RMSE et le nombre de point utilisé pour modéliser PBB
+
+```{r, eval=FALSE}
+
+t <- df %>%
+filter(PAR > 500)%>%
+group_by(placette)%>%
+summarise(N=n())
+
+tt <- left_join(t, p7rmse, by="placette")
+
+plot(tt$N~tt$rmse_Tair)
+summary(lm(tt$N~tt$rmse_Tair))
+```
+
+
+# Bilan interpolé
+
+```{r}
+# Récupérer données interpolée
+# ER : (T25) (T25 et WTL) ; GPPsat (T15)
+cT <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cTprofile_all.csv")%>%
+  select(timestamp, Tair, T5)
+# ENE : PAR
+cPAR <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cPAR_all.csv")
+# Veg H
+cVEG <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/pdata_to_cdata/cVeg_all.csv")
+
+# ENE mdl param
+aNEE_Tair <- coef(dfTair_m)[1]
+aNEE_TairH <- coef(dfTairH_m)[1] 
+aNEE_TairHH <- coef(dfTairHH_m)[1] 
+
+# sensitivity + 10%
+# aNEE_Tair <- coef(dfT25_m)[1] - (coef(dfT25_m)[1]*.1)
+
+BdC <- cT %>%
+  inner_join(.,cPAR)%>%
+  inner_join(.,cVEG)%>%
+  do(na.omit(.))%>% # 49 values
+  mutate(timestamp = as.POSIXct(timestamp))%>%
+  mutate(predER_Tair = aER_m1*exp(bER_m1*Tair)) %>%
+  mutate(predER_Tair_H = (aER_m2*H+cER_m2)*exp(bER_m2*Tair))%>%
+  # mutate(predER_T5_RH = (aER_m3*RH_m+cER_m3)*exp(bER_m3*T5))%>%
+  mutate(predGPPsat_Tair = aGPPsat_m1 * exp(-((Tair-bGPPsat_m1)/cGPPsat_m1)^2))%>%
+  mutate(predGPPsat_Tair_H = (aGPPsat_m2 * H) * exp(-((Tair-bGPPsat_m2)/cGPPsat_m2)^2))%>%
+  mutate(predNEE_Tair = (aNEE_Tair*PAR*predGPPsat_Tair/(predGPPsat_Tair+PAR*aNEE_Tair)-predER_Tair))%>%
+  mutate(predNEE_Tair_HH = (aNEE_TairHH*PAR*predGPPsat_Tair_H/(predGPPsat_Tair_H+PAR*aNEE_TairHH)-predER_Tair_H))
+
+
+## Créer interpolation WTL p7 >> WTL auto
+
+# ggplot(BdC, aes(x=timestamp, y=PAR))+
+#   geom_line()+
+#   theme_bw()
+```
+
+## ENE modélisée : ER (Tair) ; GPPsat (Tair)
+
+```{r}
+# ER T25 ; GPPsat T15 mdl vis
+BdC_plt <- select(BdC, timestamp, predNEE_Tair, predER_Tair, predNEE_Tair_HH, predER_Tair_H)%>%
+  mutate(timestamp = as.POSIXct(timestamp))%>%
+  filter(timestamp < as.POSIXct("2015-01-01"))
+
+# get ponctual measurements to plot on continous ones
+df_p <- df %>%
+  select(date, ID_camp, NEE, ER)%>%
+  group_by(ID_camp)%>%
+  mutate(date = as.Date(date))%>%
+  summarise(date=min(date, na.rm=T), NEE_sd = sd(NEE, na.rm=T), NEE = mean(NEE, na.rm=T), ER_sd = sd(ER, na.rm=T), ER = mean(ER, na.rm=T))%>%
+  mutate(date_ts = as.POSIXct(date))%>%
+  filter(ID_camp < 20)
+```
+
+
+```{r}
+p1 <- ggplot(BdC_plt, aes(x=timestamp, y=predNEE_Tair))+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  geom_line()+
+  geom_point(data = df_p, aes(x=date_ts, y=NEE), color="red", size=3)+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("ENE_BdC_Tair_mod_mes.pdf", plot=p1, path=savpth, width=12, height=8, cairo_pdf)
+
+# Tair RH
+
+p2 <- ggplot(BdC_plt, aes(x=timestamp, y=predNEE_Tair_HH))+
+  labs(y=expression(paste("ENE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  geom_line()+
+  geom_point(data = df_p, aes(x=date_ts, y=NEE), color="red", size=3)+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p2
+ggsave("ENE_BdC_TairHH_mod_mes.pdf", plot=p2, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+```{r}
+# Convertion fact from umol.m2.s1 to gC.m2.yr
+cfA <- 6.31152
+
+summ <- BdC_plt %>%
+  mutate(timestamp = as.character(timestamp)) %>%
+  separate(timestamp, c("date", "hours"), sep=" ")%>%
+  separate(date, c("yr", "m", "d"), sep="-")%>%
+  group_by(yr)%>%
+  summarise(predNEE_Tair = mean(predNEE_Tair, na.rm=TRUE))%>%
+  mutate(gC=predNEE_Tair*cfA)
+
+gCall <- round(mean(BdC_plt$predNEE_T25)*cfA,2)
+```
+
+### stored C for the 2 years
+
+`r gCall` gC.m^-2^.yr^-1^ were stored
+
+### stored C per year
+
+```{r}
+summ
+```
+
+```{r}
+p <- ggplot(BdC_plt, aes(x=timestamp, y=predER_Tair))+
+  labs(y=expression(paste("ER modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="temps")+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%Y %b"))+
+  geom_line()+
+  geom_point(data = df_p, aes(x=date_ts, y=ER), color="red", size=3)+
+  theme_bw()+
+  theme(axis.title=element_text(size=16), # DIAPO
+        strip.text.x = element_text(size = 14), #DIAPO
+        axis.text=element_text(size=14), # DIAPO
+        axis.text.x=element_text(angle = 30, hjust=1),
+        axis.title.x=element_blank(),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p
+ggsave("ER_BdC_mod_mes.pdf", plot=p, path=savpth, width=12, height=8, cairo_pdf)
+```
+
+
+# Validation avec Carbiodiv
+
+## ER
+
+```{r, eval=FALSE}
+library(carbiodiv)
+
+# Fichier VS -- Données ponctuelles
+## Flux
+# df3F <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/3F_data.csv") %>%
+#   spread(F_type, flux)   TODO in CARBIODIV
+
+df3F <- cdNetFlux %>%
+  select(campaign, cycle_no, treatment, localisation, replicate, PAR_deb, PAR_fin, netCO2F, type)%>%
+  filter(type == "Re")
+
+## Soil temperature # TODO in CARBIODIV
+dfT <- svTemperature %>%
+  select(ID_camp, placette, T15, T25)
+
+## Ctrl facteur
+dfctrl <- svCtrlFact %>%
+  select(ID_camp, placette, WTL, PAR_Deb, PAR_Fin)%>%
+  gather(type, val, 4:5)%>%
+  group_by(ID_camp, placette)%>%
+  summarise(WTL=mean(WTL, na.rm=T), PAR=mean(val, na.rm=T))%>%
+  ungroup()
+
+## Vegetation
+# nada for now
+
+## Merge data
+df_temp <- df3F %>%
+  left_join(., dfT, by=c("ID_camp", "placette")) %>%
+  left_join(., dfctrl, by=c("ID_camp", "placette")) %>%
+  do(na.omit(.))%>%
+  arrange(placette)
+
+## ER and GPPsat prediction calculation
+df <- df_temp %>%
+  mutate(predER_T25 = aER_m1*exp(bER_m1*T25)) %>%
+  mutate(predER_T25WTL = (aER_m2*WTL+bER_m2)*exp(cER_m2*T25))%>%
+  mutate(predGPPsat = aGPPsat_m1 * exp(-((T15-bGPPsat_m1)/cGPPsat_m1)^2)) %>%
+  mutate(predENE_T25 = (aNEE_Tair*PAR*predGPPsat/(predGPPsat+PAR*aNEE_Tair)-predER_T25)
+
+```
+
+## GPPsat
+
+## ENE
+
+# Todo
+
+A voir : 
+
+- Comment estimer la qualité de la régression
+
+- Comment justifier l'utilisation de la fonction de June pour GPPsat
+
+***
+
+```{r}
+# Génération de figures (rien de visible dans le html)
+getp7mesmod <- function(df, id){
+  for(i in unique(df$placette)){
+    filename <- paste0("ENE_", id, "_", i,".pdf")
+    sav <- file.path(savpth, "p7" , filename)
+    # get data by p7
+    temp <- df %>%
+      select(-resNEE)%>% # issue with dplyr version not handling attributes
+      mutate(placette=as.character(placette))%>%
+      filter(placette %in% c(i))
+    # get RMSE
+    rmse <- round(getRMSE(temp$predNEE, temp$NEE),2)
+    rmse_lab <- paste(i, " - rmse = ", as.character(rmse))
+    #plot
+    cairo_pdf(sav, width=5, height=5)
+    pmesmod(temp)
+    mtext(rmse_lab, side=3, line=-1)
+    dev.off()
+  }
+}
+
+getp7mesmod(dfTair, "dfTair")
+getp7mesmod(dfTairH, "dfTairH")
+getp7mesmod(dfTairHH, "dfTairHH")
+```
+
+
+
+
+```{r, eval=FALSE}
+t <- df%>%
+  separate(date, c("year", "month", "day"), remove=F)%>%
+  filter(year != 2015)%>%
+  mutate(date = as.Date(as.character(date)))
+
+
+tt <- t %>%
+  group_by(ID_camp)%>%
+  summarize(date=min(date),
+    IVcov_sd = sd(IVcov, na.rm=T),
+    IVcov = mean(IVcov, na.rm=T),
+    Tair_sd = sd(Tair, na.rm=T), 
+    Tair = mean(Tair, na.rm=T), 
+    T5_sd = sd(T5, na.rm=T), 
+    T5 = mean(T5, na.rm=T), 
+    WTL_sd = -sd(WTL, na.rm=T), 
+    WTL = -mean(WTL, na.rm=T))
+
+plot(t$IVcov~t$date)
+plot(tt$IVcov~tt$date)
+
+ggplot(tt, aes(x=date, y=IVcov))+
+  geom_point(size=4)+
+  geom_linerange(aes(x=date, ymin=IVcov-IVcov_sd, ymax=IVcov+IVcov_sd))+
+  labs(y="Recouvrement")+
+  theme_bw()+
+  theme(panel.grid.major.x = element_blank(),
+        axis.text=element_text(size=14),   
+        axis.title = element_text(size = 14),
+        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
+        panel.grid.minor = element_blank()) # DIAPO)
+ggsave("Veg_REC_avg.pdf", pat=savpth, width=10)
+
+ggplot(tt, aes(x=date, y=T5))+
+  geom_point(size=4)+
+  geom_linerange(aes(x=date, ymin=T5-T5_sd, ymax=T5+T5_sd))+
+  labs(y="Température à -5 cm")+
+  theme_bw()+
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        axis.text=element_text(size=14),
+        axis.title = element_text(size = 14),
+        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
+        panel.grid.minor = element_blank()) # DIAPO)
+ggsave("T5_avg.pdf", pat=savpth, width=10)
+
+ggplot(tt, aes(x=date, y=Tair))+
+  geom_point(size=4)+
+  geom_linerange(aes(x=date, ymin=Tair-Tair_sd, ymax=Tair+Tair_sd))+
+  labs(y="Température de l'air cm")+
+  theme_bw()+
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        axis.text=element_text(size=14),
+        axis.title = element_text(size = 14),
+        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
+        panel.grid.minor = element_blank()) # DIAPO)
+ggsave("Tair_avg.pdf", pat=savpth, width=10)
+
+ggplot(tt, aes(x=date, y=WTL))+
+  geom_point(size=4)+
+  geom_linerange(aes(x=date, ymin=WTL-WTL_sd, ymax=WTL+WTL_sd))+
+  labs(y="Niveau Nappe (cm)")+
+  theme_bw()+
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        axis.text=element_text(size=14),
+        axis.title = element_text(size = 14),
+        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
+        panel.grid.minor = element_blank()) # DIAPO)
+ggsave("WTL_avg.pdf", pat=savpth, width=10)
+```
+

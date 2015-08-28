@@ -227,7 +227,7 @@ par(mfrow=c(1,1))
 
 
 
-# Temperature and Relative humidity ER~(aRH+b)*exp(cT25)
+# Temperature and Soil Water Content ER~(aRH+b)*exp(cT25)
 ```{r}
 # Non linear version --------------------
 # 2013
@@ -309,6 +309,98 @@ dev.off()
 
 cairo_pdf(file.path(savpth, "ER_RHT25_ecosyt_mesmod_2014.pdf"), width=5, height=5)
 pmesmod(df_mrh2014, "2014")
+dev.off()
+```
+
+
+
+
+
+
+
+
+# Temperature and WTL ER~(aWTL+b)*exp(cT25)
+```{r}
+# Non linear version --------------------
+# 2013
+df_mwtl2013 <- df%>%
+  filter(year == "2013")
+
+mwtl2013 <- nls(netCO2F~(a*WTL + b)*exp(c*T25), data = df_mwtl2013, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+
+a2013 <- coef(mwtl2013)[1]
+b2013 <- coef(mwtl2013)[2]
+c2013 <- coef(mwtl2013)[3]
+
+df_mwtl2013$resi <- residuals(mwtl2013)
+df_mwtl2013$pred <- predict(mwtl2013)
+df_mwtl2013$predman <- (a2013*df_mwtl2013$WTL + b2013)*exp(c2013*df_mwtl2013$T25)
+
+rmse_ER_WTLT25_2013 <- sqrt(mean((df_mwtl2013$predman-df_mwtl2013$netCO2F)^2,na.rm=TRUE))
+
+# 2014
+df_mwtl2014 <- df%>%
+  filter(year == "2014")
+
+mwtl2014 <- nls(netCO2F~(a*WTL + b)*exp(c*T25), data = df_mwtl2014, na.action = na.exclude, start=list(a=0.2, b=0.2, c=0.6))
+
+a2014 <- coef(mwtl2014)[1]
+b2014 <- coef(mwtl2014)[2]
+c2014 <- coef(mwtl2014)[3]
+
+df_mwtl2014$resi <- residuals(mwtl2014)
+df_mwtl2014$pred <- predict(mwtl2014)
+df_mwtl2014$predman <- (a2014*df_mwtl2014$WTL + b2014)*exp(c2014*df_mwtl2014$T25)
+
+rmse_ER_WTLT25_2014 <- sqrt(mean((df_mwtl2014$predman-df_mwtl2014$netCO2F)^2,na.rm=TRUE))
+```
+
+```{r, fig.height=12}
+par(mfrow=c(2,2))
+pER_T(df_mwtl2013)
+pER_T(df_mwtl2014)
+pmesmod(df_mwtl2013, "2013")
+pmesmod(df_mwtl2014, "2014")
+par(mfrow=c(2,1))
+```
+
+### model equation
+
+#### 2013
+ER = (`r a2013` * RH + `r b2013`) * exp(`r c2013` * T25)
+
+#### 2014
+ER = (`r a2014` * RH + `r b2014`) * exp(`r c2014` * T25)
+
+### diagnostic values
+
+#### 2013
+rmse = `r rmse_ER_WTLT25_2013` (nls)
+
+aic = `r AIC(mwtl2013)` (nls)
+
+#### 2014
+rmse = `r rmse_ER_WTLT25_2014` (nls)
+
+aic = `r AIC(mwtl2014)` (nls)
+
+```{r, error=FALSE, results="hide"}
+# 2013
+cairo_pdf(file.path(savpth, "ER_WTLT25_ecosyt_2013.pdf"), width=6.5, height=5)
+pER_T(df_mwtl2013)
+dev.off()
+
+cairo_pdf(file.path(savpth, "ER_WTLT25_ecosyt_mesmod_2013.pdf"), width=5, height=5)
+pmesmod(df_mwtl2013, "2013")
+dev.off()
+
+# 2014
+cairo_pdf(file.path(savpth, "ER_WTLT25_ecosyt_2014.pdf"), width=6.5, height=5)
+pER_T(df_mwtl2014)
+dev.off()
+
+cairo_pdf(file.path(savpth, "ER_WTLT25_ecosyt_mesmod_2014.pdf"), width=5, height=5)
+pmesmod(df_mwtl2014, "2014")
 dev.off()
 ```
 
