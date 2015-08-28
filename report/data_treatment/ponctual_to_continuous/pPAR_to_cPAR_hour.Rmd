@@ -1,0 +1,130 @@
+---
+title: "Photosynthetically Active Radiation"
+author: "Benoît D'ANGELO"
+date: "06/05/2015"
+output:
+  html_document:
+  includes:
+  in_header: ../../in_header.html
+theme: flatly
+---
+  
+<h3><a href="../../vis_toc.html"> Visualisation </a></h3>
+***
+
+```{r setup}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(snoweather)
+library(bdphdtoolbox)
+
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/data_treatment/pdata_to_cdata"
+```
+
+```{r load data}
+# Fichier VS -- Données ponctuelles
+df_p <- svCtrlFact %>%
+  select(ID_camp, placette, date, NEE_time, PAR_Deb, PAR_Fin)%>%
+  mutate(p_ts=as.POSIXct(paste(date, NEE_time, sep=" "), format="%Y-%m-%d %H:%M"))%>%
+  group_by(p_ts)%>%
+  mutate(PAR = mean(c(PAR_Deb, PAR_Fin), na.rm=T))%>%
+  ungroup()%>%
+  select(date, p_ts, PAR)%>%
+  group_by(date)%>%
+  summarise(PAR = mean(PAR, na.rm=T), p_ts = mean(p_ts, na.rm=T))
+  
+
+## Données météo, données continues
+df_c <- wrLGT %>%
+  select(timestamp, Rad_kW, Rad_MJ)%>%
+  filter(timestamp >= as.POSIXct("01/01/2013", format = "%d/%m/%Y"))
+
+# Keys
+# ## valeur numérique 
+# df_p <- data.table(df_p, key = "key_p")
+# df_c <- data.table(df_c, key = "key_c")
+## vs directement POSIXct
+df_p <- data.table(df_p, key = "p_ts")
+df_c <- data.table(df_c, key = "timestamp")
+
+df <- df_c[df_p, roll="nearest"]
+```
+
+
+```{r}
+# mdl_p7 <- df %>%
+#   group_by(placette)%>%
+#   do(lm_get_std(lm(.$PAR~.$Rad_kW)))%>%
+#   ungroup()%>%
+#   arrange(aR2)%>%
+#   mutate(pval_star=tc_pval(pval))
+
+# For all placette
+mdl_all <-lm_get_std(lm(df$PAR~df$Rad_kW)) %>%
+  # ungroup()%>%
+  # arrange(aR2)%>%
+  mutate(pval_star=tc_pval(pval))
+
+mdl_all_0 <-lm_get_std(lm(df$PAR~0+df$Rad_kW)) %>%
+  # ungroup()%>%
+  # arrange(aR2)%>%
+  mutate(pval_star=tc_pval(pval))%>%
+  mutate(slope=intercept, intercept=0)
+```
+
+```{r}
+# # Calculate continuous profile temperature
+# result_p7 <- data.frame()
+# for(i in 1:NROW(mdl_p7)){
+# # for(i in 1:200){ # les 30 premiers cm
+#   temp <- df_c%>%
+#   mutate(hour = cut(timestamp, breaks="hours"))%>% # daily mean
+#   select(-timestamp)%>%
+#   group_by(hour)%>%
+#   summarise_each(funs(mean))%>%
+#   mutate(timestamp = as.POSIXct(hour, format="%Y-%m-%d"))%>%
+#   select(-hour)
+#   
+#   temp$pred <- mdl_p7$intercept[i] + mdl_p7$slope[i]*temp$Rad_kW
+#   temp$placette <- mdl_p7$placette[i]
+#   result_p7 <- rbind(result_p7, temp)
+# }
+# cPAR_p7 <- result_p7 %>%
+#   select(timestamp, placette, pred)%>%
+#   rename(PAR=pred)
+
+# For all p7 pooled
+result_all <- df_c%>%
+  mutate(hour = cut(timestamp, breaks="hours"))%>% # daily mean
+  select(-timestamp)%>%
+  group_by(hour)%>%
+  summarise_each(funs(mean))%>%
+  mutate(timestamp = as.POSIXct(hour, format="%Y-%m-%d %H:%M:%S"))%>%
+  select(-hour)
+
+
+result_all$pred <- mdl_all_0$intercept[1] + mdl_all_0$slope[1]*result_all$Rad_kW
+
+
+cPAR_all <- result_all %>%
+  select(timestamp, pred)%>%
+  rename(PAR=pred)
+```
+  
+```{r}
+# Export csv files
+## per p7
+# write.csv(cPAR_p7, "../../../data/processed/pdata_to_cdata/cPAR_p7_hour.csv", row.names=FALSE, quote=FALSE)
+# write.csv(mdl_p7, "../../../data/processed/pdata_to_cdata/cPAR_p7_par.csv", row.names=FALSE, quote=FALSE)
+## For all p7 pooled
+write.csv(cPAR_all, "../../../data/processed/pdata_to_cdata/cPAR_all_hour.csv", row.names=FALSE, quote=FALSE)
+write.csv(mdl_all, "../../../data/processed/pdata_to_cdata/cPAR_all_par.csv", row.names=FALSE, quote=FALSE)
+
+plot(df$Rad_kW~df$Rad_MJ)
+```

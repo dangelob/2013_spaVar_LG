@@ -1,0 +1,124 @@
+---
+title: "Ponctual vs continuous measurements: relationship"
+author: "Benoît D'ANGELO"
+date: "22/04/2015"
+output:
+  html_document:
+  includes:
+  in_header: ../in_header.html
+theme: flatly
+---
+  
+<h3><a href="../vis_toc.html"> Visualisation </a></h3>
+***
+
+```{r setup}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/data_treatment"
+
+panel.cor <- function(x, y, digits=2, prefix="", cex.cor) 
+{
+    usr <- par("usr"); on.exit(par(usr)) 
+    par(usr = c(0, 1, 0, 1)) 
+    r <- abs(cor(x, y, use="pairwise.complete.obs")) 
+    txt <- format(c(r, 0.123456789), digits=digits)[1] 
+    txt <- paste(prefix, txt, sep="") 
+    if(missing(cex.cor)) cex <- 0.8/strwidth(txt) 
+ 
+    test <- cor.test(x,y) 
+    # borrowed from printCoefmat
+    Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, 
+                  cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
+                  symbols = c("***", "**", "*", ".", " ")) 
+ 
+    text(0.5, 0.5, txt, cex = cex * r) 
+    text(.8, .8, Signif, cex=cex, col=2) 
+}
+```
+
+```{r load data}
+# Fichier VS
+# TODO : ajout des données temperatures [DONE]
+# TODO : (et veg)
+df_p <- left_join(svCtrlFact, svTemperature) %>%
+  unite(NEE_ts, date, NEE_time, remove = FALSE)%>%
+  unite(Re_ts, date, Re_time, remove = FALSE)%>%
+  mutate(NEE_ts = as.POSIXct(NEE_ts, format = "%Y-%m-%d_%H:%M"),
+         Re_ts = as.POSIXct(Re_ts, format = "%Y-%m-%d_%H:%M"),
+         mtime = NEE_ts + ((Re_ts - NEE_ts)/2))%>%
+  select(-NEE_ts, -Re_ts)%>%
+  mutate(key_p = as.numeric(mtime))
+
+## Fichier météo peut être déplacer le traitement dans un package...
+wth1 <- read.csv("~/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/report/data_treatment/FR_LGT_001_14_52_1300.csv", skip=3)
+colnames(wth1) <- c("timestamp", "record", "Pa", "rainfall", "SlrkW", "SlrMJ", "T1", "T2", "T3", "T4", "WD", "WS", "Tair", "RH")
+wth1$timestamp <- as.POSIXct(wth1$timestamp, format = "%d/%m/%Y %H:%M")
+wth1$key_c <- as.numeric(wth1$timestamp)  
+wth2 <- read.csv("~/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/report/data_treatment/FR_LGT_001_15_106_0000.csv", skip=3)
+colnames(wth2) <- c("timestamp", "record", "Pa", "rainfall", "SlrkW", "SlrMJ", "T1", "T2", "T3", "T4", "WD", "WS", "Tair", "RH")
+wth2$timestamp <- as.POSIXct(wth2$timestamp, format = "%d/%m/%Y %H:%M")
+wth2$key_c <- as.numeric(wth2$timestamp)  
+
+df_c <- rbind(wth1, wth2)
+
+head(df_c)
+
+# valeur numérique 
+df_p <- data.table(df_p, key = "key_p")
+df_c <- data.table(df_c, key = "key_c")
+# vs directement POSIXct
+# df_p <- data.table(df_p, key = "mtime")
+# df_c <- data.table(df_c, key = "timestamp")
+
+test <- df_c[df_p, roll="nearest"]
+
+plot(test$mtime~test$timestamp)
+plot(test$T1~test$T5)
+abline(a=0, b=1)
+summary(lm(test$T1~test$T5))
+
+plot(test$T2~test$T10)
+abline(a=0, b=1)
+summary(lm(test$T2~test$T10))
+
+plot(test$T3~test$T20)
+abline(a=0, b=1)
+summary(lm(test$T3~test$T20))
+
+plot(test$T4~test$T30)
+abline(a=0, b=1)
+summary(lm(test$T4~test$T30))
+
+test2 <- as.data.frame(test) %>%
+  select(placette, T1, T2, T3, T4, T5, T10, T15, T20, T25, T30, T40, T50, T60, T70, T80, T90, T100)
+
+pairs(test2[c("T1","T2", "T3", "T4", "T5", "T10", "T15", "T20", "T25", "T30")], lower.panel=panel.smooth, upper.panel=panel.cor)
+
+pairs(test2[c("T4", "T10", "T15", "T20", "T25", "T30", "T40", "T50")], lower.panel=panel.smooth, upper.panel=panel.cor)
+
+# Comparaison par placette
+p7 <- test2[test2$placette == "p03",c("T1","T2", "T3", "T4","T5", "T10", "T15", "T20", "T25", "T30", "T40")]
+
+
+plot(T15~T20, data=p7)
+abline(a=0, b=1)
+summary(lm(T15~T20, data=p7))
+
+# Toutes les placettes
+pdf(file="graphs/data_treatment/p7.pdf", width=10)
+for (i in levels(test2$placette)){
+  cat(i)
+p7 <- test2[test2$placette == i,c("T1","T2", "T3", "T4","T5", "T10", "T15", "T20", "T25", "T30", "T40")]
+pairs(p7, lower.panel=panel.smooth, upper.panel=panel.cor)
+
+}
+dev.off()
+```
+

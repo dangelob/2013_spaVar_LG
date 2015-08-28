@@ -54,33 +54,13 @@ df <- df_c[df_p, roll="nearest"]
 
 
 ```{r}
-# ggplot(df, aes(x = Rad_kW, y = PAR))+
-#   geom_point()+
-#   theme_bw()
-# 
-# m <- lm(df$PAR~df$Rad_kW)
-# m0 <- lm(df$PAR~-1*df$Rad_kW)
-# summary(m)
-# plot(df$PAR~df$Rad_kW)
-# abline(m, col="blue")
-# abline(m0, col="red")
-
-
-# 
-# tt <- filter(df, placette == "p04")
-# m0 <- lm(tt$PAR~-1+tt$Rad_kW)
-# summary(m)
-# summary(m0)
-# plot(tt$PAR~tt$Rad_kW)
-# abline(m, col="blue")
-# abline(m0, col="red")
-
 mdl_p7 <- df %>%
   group_by(placette)%>%
   do(lm_get_std(lm(.$PAR~.$Rad_kW)))%>%
   ungroup()%>%
   arrange(aR2)%>%
   mutate(pval_star=tc_pval(pval))
+
 # For all placette
 mdl_all <-lm_get_std(lm(df$PAR~df$Rad_kW)) %>%
   # ungroup()%>%
@@ -93,7 +73,13 @@ mdl_all <-lm_get_std(lm(df$PAR~df$Rad_kW)) %>%
 result_p7 <- data.frame()
 for(i in 1:NROW(mdl_p7)){
 # for(i in 1:200){ # les 30 premiers cm
-  temp <- df_c
+  temp <- df_c%>%
+  mutate(day = cut(timestamp, breaks="days"))%>% # daily mean
+  select(-timestamp)%>%
+  group_by(day)%>%
+  summarise_each(funs(mean))%>%
+  mutate(timestamp = as.POSIXct(day, format="%Y-%m-%d"))%>%
+  select(-day)
   
   temp$pred <- mdl_p7$intercept[i] + mdl_p7$slope[i]*temp$Rad_kW
   temp$placette <- mdl_p7$placette[i]
@@ -104,7 +90,13 @@ cPAR_p7 <- result_p7 %>%
   rename(PAR=pred)
 
 # For all p7 pooled
-result_all <- df_c
+result_all <- df_c%>%
+  mutate(day = cut(timestamp, breaks="days"))%>% # daily mean
+  select(-timestamp)%>%
+  group_by(day)%>%
+  summarise_each(funs(mean))%>%
+  mutate(timestamp = as.POSIXct(day, format="%Y-%m-%d"))%>%
+  select(-day)
 
 result_all$pred <- mdl_all$intercept[1] + mdl_all$slope[1]*result_all$Rad_kW
 
@@ -116,10 +108,10 @@ cPAR_all <- result_all %>%
 ```{r}
 # Export csv files
 ## per p7
-write.csv(cPAR_p7, "../../../data/processed/pdata_to_cdata/cPAR_p7.csv", row.names=FALSE, quote=FALSE)
+write.csv(cPAR_p7, "../../../data/processed/pdata_to_cdata/cPAR_p7_day.csv", row.names=FALSE, quote=FALSE)
 write.csv(mdl_p7, "../../../data/processed/pdata_to_cdata/cPAR_p7_par.csv", row.names=FALSE, quote=FALSE)
 ## For all p7 pooled
-write.csv(cPAR_all, "../../../data/processed/pdata_to_cdata/cPAR_all.csv", row.names=FALSE, quote=FALSE)
+write.csv(cPAR_all, "../../../data/processed/pdata_to_cdata/cPAR_all_day.csv", row.names=FALSE, quote=FALSE)
 write.csv(mdl_all, "../../../data/processed/pdata_to_cdata/cPAR_all_par.csv", row.names=FALSE, quote=FALSE)
 
 plot(df$Rad_kW~df$Rad_MJ)

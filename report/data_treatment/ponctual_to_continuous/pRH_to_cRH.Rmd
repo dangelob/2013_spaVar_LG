@@ -20,6 +20,7 @@ library(snoweather)
 library(bdphdtoolbox)
 
 library(data.table)
+library(xts)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -29,31 +30,70 @@ savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/grap
 
 ```{r load data}
 # Fichier VS -- Données ponctuelles
+## ctrl fact
 df_p <- svCtrlFact %>%
-  select(ID_camp, placette, date, NEE_time, PAR_Deb, PAR_Fin)%>%
-  mutate(p_ts=as.POSIXct(paste(date, NEE_time, sep=" "), format="%Y-%m-%d %H:%M"))%>%
-  group_by(p_ts)%>%
-  mutate(PAR = mean(c(PAR_Deb, PAR_Fin), na.rm=T))%>%
+  select(ID_camp, placette, date, NEE_time, RH_m)%>%
+  mutate(p_ts=as.POSIXct(paste(date, NEE_time, sep=" "), format="%Y-%m-%d %H:%M"))
+
+
+df_pm <- df_p %>%
+  group_by(ID_camp)%>%
+  summarise(p_ts=mean(p_ts, na.rm=T), RH_m=mean(RH_m, na.rm=T))%>%
   ungroup()
+
+df_pm <- as.data.frame(df_pm)
+
+#add line to force Herbacée at 0 at the start (during winter)
+# newrow <- data.frame(ID_camp=0, p_ts=c(as.POSIXct("2013-01-01 00:00:00"),     as.POSIXct("2013-12-01 00:00:00")), A=NA, H=0, M=NA, IVcov=c(0.15,0.2))
+# 
+# df_pm <- rbind(newrow, df_pm)
+
+df_pm <- arrange(df_pm, p_ts)
+
+# df_pm$timestamp <- as.POSIXct(df_pm$timestamp)
+
+df_p$p_ts <- as.POSIXct(round(df_p$p_ts, "hours"))
+df_pm$p_ts <- as.POSIXct(round(df_pm$p_ts, "hours"))
+
 
 ## Données météo, données continues
 df_c <- wrLGT %>%
-  select(timestamp, Rad_kW, Rad_MJ)%>%
+  select(timestamp, Ta)%>%
   filter(timestamp >= as.POSIXct("01/01/2013", format = "%d/%m/%Y"))
 
-# Keys
-# ## valeur numérique 
-# df_p <- data.table(df_p, key = "key_p")
-# df_c <- data.table(df_c, key = "key_c")
-## vs directement POSIXct
-df_p <- data.table(df_p, key = "p_ts")
-df_c <- data.table(df_c, key = "timestamp")
 
-df <- df_c[df_p, roll="nearest"]
+xdf_c <- xts(df_c$Ta, order.by = df_c$timestamp)
+
+xdf_pm <- xts(df_pm$RH_m, order.by = df_pm$p_ts)
+
+
+# data.table
+# df_pm <- data.table(df_pm, key = "p_ts")
+# df_c <- data.table(df_c, key = "timestamp")
+# df <- df_pm[df_c,]
+
+# xts
+df1 <- merge(xdf_c, xdf_pm)
+# interpol
+df1$xdf_pmc <- na.approx(df1$xdf_pm)
+
+
+plot(df1$xdf_pmc)
+points(df1$xdf_pm)
+
+t <- as.data.frame(df1)
+tt <- data.frame(timestamp=rownames(t), t, row.names = NULL)
+
+cRH <- tt %>%
+  select(timestamp, xdf_pmc)%>%
+  rename(RH = xdf_pmc)
+  
+
+write.csv(cRH, "../../../data/processed/pdata_to_cdata/cRH_all.csv", row.names=FALSE, quote=FALSE)
 ```
 
 
-```{r}
+```{r, eval=F}
 # ggplot(df, aes(x = Rad_kW, y = PAR))+
 #   geom_point()+
 #   theme_bw()
@@ -88,13 +128,12 @@ mdl_all <-lm_get_std(lm(df$PAR~df$Rad_kW)) %>%
   mutate(pval_star=tc_pval(pval))
 ```
 
-```{r}
+```{r, eval=F}
 # Calculate continuous profile temperature
 result_p7 <- data.frame()
 for(i in 1:NROW(mdl_p7)){
 # for(i in 1:200){ # les 30 premiers cm
   temp <- df_c
-  
   temp$pred <- mdl_p7$intercept[i] + mdl_p7$slope[i]*temp$Rad_kW
   temp$placette <- mdl_p7$placette[i]
   result_p7 <- rbind(result_p7, temp)
@@ -105,22 +144,21 @@ cPAR_p7 <- result_p7 %>%
 
 # For all p7 pooled
 result_all <- df_c
-
-result_all$pred <- mdl_all$intercept[1] + mdl_all$slope[1]*result_all$Rad_kW
+result_all$pred <- mdl_all$intercept[1] + mdl_all$slope[1]*df_c$Rad_kW
 
 cPAR_all <- result_all %>%
   select(timestamp, pred)%>%
   rename(PAR=pred)
 ```
   
-```{r}
+```{r, eval=F}
 # Export csv files
 ## per p7
-write.csv(cPAR_p7, "../../../data/processed/pdata_to_cdata/cPAR_p7.csv", row.names=FALSE, quote=FALSE)
-write.csv(mdl_p7, "../../../data/processed/pdata_to_cdata/cPAR_p7_par.csv", row.names=FALSE, quote=FALSE)
+write.csv(cPAR_p7, "../../../data/processed/pdata_to_cdata/cVeg_p7.csv", row.names=FALSE, quote=FALSE)
+write.csv(mdl_p7, "../../../data/processed/pdata_to_cdata/cVeg_p7_par.csv", row.names=FALSE, quote=FALSE)
 ## For all p7 pooled
-write.csv(cPAR_all, "../../../data/processed/pdata_to_cdata/cPAR_all.csv", row.names=FALSE, quote=FALSE)
-write.csv(mdl_all, "../../../data/processed/pdata_to_cdata/cPAR_all_par.csv", row.names=FALSE, quote=FALSE)
+write.csv(cPAR_all, "../../../data/processed/pdata_to_cdata/cVeg_all.csv", row.names=FALSE, quote=FALSE)
+write.csv(mdl_all, "../../../data/processed/pdata_to_cdata/cVeg_all_par.csv", row.names=FALSE, quote=FALSE)
 
 plot(df$Rad_kW~df$Rad_MJ)
 ```
