@@ -19,6 +19,7 @@ library(laguettevarspa)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(scales)
 savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 
 source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/vis_plot.R")
@@ -52,7 +53,7 @@ df <- inner_join(df_ER, df_NEE)%>%
   separate(date, c("year","month", "day"),remove = F) %>%
   mutate(time = substr(time, 1, 5), ID_camp = as.factor(ID_camp), date=as.Date(date))
 
-lab_Y <- "GPP"
+lab_Y <- expression(paste("PPB (", mu, mol,m^-2,s^-1,")", sep=""))
 
 mdf <- df %>%
   group_by(ID_camp)%>%
@@ -68,11 +69,15 @@ flplt(df, lab_Y) # /src/report/vis_plot
 ggsave("GPP_evolution.pdf", path=savpth)
 
 ggplot(mdf, aes(x=date, y=netCO2F))+
-  geom_point(size=4)+
+  geom_point(size=3)+
   geom_linerange(aes(x=date, ymin=netCO2F-netCO2F_sd, ymax=netCO2F+netCO2F_sd))+
-  labs(y="GPP")+
-  theme_bw()
-ggsave("GPP_evolution_avg.pdf", path=savpth)
+  labs(y=lab_Y, x="2013-2014")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
+  theme_bw()+
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
+        panel.grid.minor = element_blank()) # DIAPO)
+ggsave("GPP_evolution_avg.pdf", path=savpth, width=7, height=3)
 
 ```
 

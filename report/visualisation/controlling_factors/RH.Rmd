@@ -17,6 +17,7 @@ library(laguettevarspa)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(scales)
 
 savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 
@@ -42,17 +43,17 @@ dfm <- df %>%
 
 ## Mean RH
 
-```{r, echo=FALSE, warning=FALSE}
-ggplot(dfm, aes(x=date, y=RH, group=year))+
-  geom_point()+
-  geom_line()+
-  geom_line(aes(x=date, y=RH+RH_sd), linetype="dashed")+
-  geom_line(aes(x=date, y=RH-RH_sd), linetype="dashed")+
-#   geom_line(aes(group=profondeur))+
-#   facet_wrap(~year)+
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=9}
+ggplot(dfm, aes(x=date, y=RH))+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=RH-RH_sd, ymax=RH+RH_sd))+
+  labs(y="indice de teneur en eau du sol", x="2013-2014")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
   theme_bw()+
-  theme(axis.text.x=element_text(angle=30, hjust=1))
-ggsave("RH_mean_evolution.pdf", path=savpth)
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank())
+ggsave("RH_mean_evolution.pdf", path=savpth, width=7, height=3)
 ```
 
 # RH for each replicate

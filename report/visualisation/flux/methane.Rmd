@@ -1,0 +1,346 @@
+---
+title: "Méthane"
+author: "Benoît D'ANGELO"
+date: "21/07/2015"
+output:
+  html_document:
+    fig_height: 3
+    fig_width: 7
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+---
+
+<h3><a href="../vis_toc.html"> Visualisation </a></h3>
+***
+
+```{r, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
+
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+# TODO
+# units on axis
+opts_chunk$set(echo = F)
+options(width = 100)
+
+```
+
+```{r}
+panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
+     {
+         usr <- par("usr"); on.exit(par(usr))
+         par(usr = c(0, 1, 0, 1))
+         r = (cor(x, y))
+         txt <- format(c(r, 0.123456789), digits=digits)[1]
+         txt <- paste(prefix, txt, sep="")
+         if(missing(cex.cor)) cex <- 0.8/strwidth(txt)
+         text(0.5, 0.5, txt, cex = cex * abs(r))
+}
+
+
+mdl_exp <- function(df, strt=list(a=0.1, b=0.3)){
+mdl <- nls(Y ~ a * exp(b*X), data=df, start=strt, na.action = na.exclude)
+}
+mdl_lin <- function(df){
+mdl <- nls(Y ~ a + b*X, data=df, start=list(a=0.1, b=0.3), na.action = na.exclude)
+}
+
+mdl_param <- function(df, mdl){
+  # R2
+  devmean <- df$Y-(mean(df$Y)) # deviation à la moyenne
+  SSres <-sum((resid(mdl))^2) # Total sum of squares
+  SStot <- sum(devmean^2) # Residual sum of squares
+  # 2 way to calculate
+  # R2 <- (SStot-SSres)/SStot 
+  R2 <- 1 - SSres/SStot
+  # Adjusted R2
+  N <- NROW(devmean) # sample size
+  p <- 1 # number of predictors
+  R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+  # RMSE
+  rmse_mdl <- sqrt(mean(((predict(mdl))-df$Y)^2,na.rm=TRUE))
+  nrmse_mdl <- 100*rmse_mdl/mean(df$Y)
+  # Collect usefull param
+  df <- data.frame(a=coef(mdl)[1],
+                   b=coef(mdl)[2],
+                   c=coef(mdl)[3],
+                   a_se=coef(summary(mdl))[,"Std. Error"][1],
+                   b_se=coef(summary(mdl))[,"Std. Error"][2],
+                   c_se=coef(summary(mdl))[,"Std. Error"][3],
+                   R2=R2,
+                   aR2=R2a,
+                   rmse=rmse_mdl,
+                   nrmse=nrmse_mdl,
+                   aic=AIC(mdl),
+                   bic=BIC(mdl))
+  return(df)
+}
+
+
+pmesmod <- function(df, mdl){
+par(mar=c(4,4.5,.5,.5))
+plot(Y~predict(mdl), 
+     ylim=c(0,200),xlim=c(0,200),
+     xlab=expression(paste("CH"[4]," modélisée (", nmol,m^-2,s^-1,")", sep="")),
+     # xlab=expression(paste("CH"[4]," modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("CH"[4]," mesurée (", nmol,m^-2,s^-1,")", sep="")), data=df)
+     # ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=df)
+abline(a=0, b=1, col="black", lty=2)
+text(190,200, "1:1", srt=45)
+}
+
+presmod <- function(mdl){
+par(mar=c(4,4,.5,.5))
+plot(resid(mdl)~predict(mdl), xlab="valeurs prédites", ylab="résidus")
+}
+```
+
+
+```{r load_data, echo=FALSE}
+df <- read.csv("~/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/other/LG_CH4.csv", sep=",", dec=".")
+# nmol m-2 s-1
+
+df$date <- as.Date(df$date, format="%Y-%m-%d")
+
+all <- filter(df, 
+              CH4 < 1000, 
+              plot != "ETREPEE")
+
+lookup <- c("1" = "p01", "2" = "p02", "3" = "p03", "4" = "p04", "5" = "p05", "6" = "p06", "5'"="A", "5\""="B", "ETREPEE"="C")
+
+#########################################################
+# df avec données recouvrant la VS
+vsch4 <- all %>%
+  select(ID_camp_co2, plot, CH4)%>%
+  filter(ID_camp_co2 != "none")%>% # retrait campagne méthane sans CO2
+  filter(plot %in% c(1,2,3,4,5,6))%>% # retrait embases autre que VS
+  mutate(plot = as.numeric(as.character(plot)))%>%
+  mutate(placette = lookup[plot])%>%
+  select(-plot)%>%
+  rename(ID_camp = ID_camp_co2)%>%
+  mutate(ID_camp = as.numeric(as.character(ID_camp)))%>%
+  group_by(ID_camp, placette)%>%
+  summarise(CH4=mean(CH4, na.rm=T))
+
+# Récupération du CO2
+dfco2 <- svNetFlux %>%
+  filter(type == "ER")%>%
+  select(date, placette, netCO2F)%>%
+  # select(ID_camp, date, placette, netCO2F)%>%
+  rename(CO2=netCO2F)
+
+# Récupération du niveau de la nappe
+dfctrl <- svCtrlFact%>%
+  select(ID_camp, date, placette, WTL)
+
+# Récupération du niveau des température
+dfT <- svTemperature%>%
+  select(ID_camp, placette, Tair, T5)%>%
+  mutate(placette = as.character(placette))
+
+# Récupération de la végétation
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/svIVcov.csv") %>%
+  select(ID_camp, placette, IVcov, A, H, M)%>%
+  mutate(placette = as.character(placette))
+
+# Fusion de toutes les données
+dfges <- dfctrl %>%
+  left_join(., dfco2)%>%
+  left_join(., dfT)%>%
+  left_join(., dfveg)%>%
+  left_join(., vsch4)%>%
+  filter(!is.na(CH4))
+  
+# Moyenne par campagne
+dfgesm <- dfges %>%
+  group_by(ID_camp)%>%
+  summarise(CO2 = mean(CO2, na.rm=T),
+            CH4_sd = sd(CH4, na.rm=T),
+            CH4 = mean(CH4, na.rm=T),
+            date=min(date, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            # T5=mean(T5, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T),
+            A=mean(A, na.rm=T),
+            H=mean(H, na.rm=T),
+            M=mean(M, na.rm=T),
+            WTL=mean(WTL, na.rm=T)
+            )%>%
+  mutate(date = as.POSIXct(date, format="%Y-%m-%d"))
+#########################################################
+```
+
+
+## All methane points
+
+```{r, echo=FALSE}
+ggplot(all , aes(x=date, y=CH4, color=plot))+
+  geom_point(size=3)+
+  theme_bw()
+```
+
+## mean per plot
+
+```{r, echo=FALSE}
+m <- all %>%
+  group_by(date, plot)%>%
+  summarise(CH4=mean(CH4, na.rm=T))
+
+ggplot(m, aes(x=date, y=CH4, color=plot))+
+  geom_point(size=3)+
+#   geom_line()+
+  theme_bw()
+```
+
+## mean per campaign
+
+```{r, echo=FALSE}
+mm <- all %>%
+  group_by(ID_camp)%>%
+  summarise(date=min(date, na.rm=T), CH4_sd=sd(CH4, na.rm=T), CH4=mean(CH4, na.rm=T), N=n())
+
+ggplot(mm, aes(x=date, y=CH4))+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=CH4-CH4_sd, ymax=CH4+CH4_sd))+
+  xlim(as.Date("2013-04-23"), as.Date("2015-02-01"))+
+  labs(y=expression(paste("CH"[4], " (", nmol,m^-2,s^-1,")", sep="")))+
+  theme_bw()+
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
+        panel.grid.minor = element_blank()) 
+ggsave("CH4_evolution_avg.pdf", path=savpth, width=7, height=3)
+
+```
+
+# Le Méthane de la VS
+
+```{r, fig.height=8, fig.width=8}
+# dfges dfgesm
+sel <- dfgesm %>%
+  select(CH4, A, H, M, IVcov, WTL, Tair)
+pairs(sel, lower.panel = panel.cor, cex.labels = 2)
+```
+
+```{r}
+ggplot(dfgesm, aes(x=date, y=CH4))+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=CH4-CH4_sd, ymax=CH4+CH4_sd))+
+  # xlim(as.Date("2013-04-23"), as.Date("2015-02-01"))+
+  labs(y=expression(paste("CH"[4], " (", nmol,m^-2,s^-1,")", sep="")))+
+  scale_x_datetime(breaks=date_breaks("2 month"), labels = date_format("%b"))+
+  theme_bw()+
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
+        panel.grid.minor = element_blank()) 
+# ggsave("CH4_evolution_avg.pdf", path=savpth, width=7, height=3)
+
+
+```
+
+
+# CH4 et Végétation
+
+```{r}
+# IVcov mdl exp
+dmdl_IVcov <- dfgesm %>%
+  rename(Y=CH4, X=IVcov)%>%
+  select(Y, X, WTL, Tair, A, H, M)
+mdl_IVcov_lin <- mdl_lin(dmdl_IVcov)
+par_IVcov_lin <- mdl_param(dmdl_IVcov, mdl_IVcov_lin)
+
+mdl_IVcov_exp <- mdl_exp(dmdl_IVcov, strt=list(a=1, b=2))
+par_IVcov_exp <- mdl_param(dmdl_IVcov, mdl_IVcov_exp)
+
+# H mdl exp
+dmdl_H <- dfgesm %>%
+  rename(Y=CH4, X=H)%>%
+  select(Y, X, WTL, Tair, A, IVcov, M)
+mdl_H_lin <- mdl_lin(dmdl_H)
+par_H_lin <- mdl_param(dmdl_H, mdl_H_lin)
+
+mdl_H_exp <- mdl_exp(dmdl_H, strt=list(a=1, b=0.1))
+par_H_exp <- mdl_param(dmdl_H, mdl_H_exp)
+
+# A mdl exp
+dmdl_A <- dfgesm %>%
+  rename(Y=CH4, X=A)%>%
+  select(Y, X, WTL, Tair, M, H, IVcov)
+mdl_A_lin <- mdl_lin(dmdl_A)
+par_A_lin <- mdl_param(dmdl_A, mdl_A_lin)
+
+mdl_A_exp <- mdl_exp(dmdl_A, strt=list(a=1, b=0.1))
+par_A_exp <- mdl_param(dmdl_A, mdl_A_exp)
+
+# Resume
+mdlls <- c("IVcov_lin", "IVcov_exp", "H_lin", "H_exp", "A_lin","A_exp")
+
+par <- c(par_IVcov_lin, par_IVcov_exp,
+         par_H_lin, par_H_exp,
+         par_A_lin, par_A_lin)
+mdlpar <- data.frame(matrix(unlist(par), nrow=length(mdlls), byrow=T))
+colnames(mdlpar) <- c("a", "b", "c", "a_se", "b_se", "c_se", "R2", "R2a", "rmse", "nrmse", "aic", "bic")
+
+res <- data.frame(mdl=mdlls)
+res <- cbind(res, mdlpar)
+result <- res
+result[,-1] <- round(result[,-1],2) # round sauf 1re col
+
+arrange(result, nrmse)
+
+ggplot(dfgesm, aes(y=CH4, x=H))+
+  geom_point(size=3)+
+  theme_bw()
+```
+
+
+# Figures
+```{r, fig.height=8}
+labpar_1 <- format(par_H_exp,  digits=2, nsmall=2)
+
+lab11 <- paste(
+  "y = ", labpar_1$a, " * exp(", labpar_1$b, "*Tair)",
+  "\nR² = ", labpar_1$aR2, 
+  "\nRMSE = ", labpar_1$rmse, 
+  "\nNRMSE = ", labpar_1$nrmse, " %", sep="")
+
+
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/CH4", "CH4_H_mdl_mesmod.pdf"), width=10, height=4)
+par(mfrow=c(1,2))
+pmesmod(dmdl_H, mdl_H_exp)
+text(x=2, y=172, labels=lab11, adj=0)
+plot(resid(mdl_H_exp)~predict(mdl_H_exp), 
+     xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep=""))) 
+par(mfrow=c(1,1))
+dev.off()
+
+# cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/CH4", "CH4_T5_mdl_res.pdf"), width=5, height=4)
+# par(mfrow=c(1,1), mar=c(4,4.5,.5,.5))
+# plot(resid(mdl_H_exp)~dmdl_H$M, 
+#      xlab="indice de végétation",
+#      ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep=""))) 
+# par(mfrow=c(1,1))
+# dev.off()
+```
+
+
+# Data
+```{r}
+export <- res %>%
+  select(mdl, a, b, c)
+
+filepath_mdl <- paste0(outpth, "/CH4_mdlpar.csv")
+write.csv(export, filepath_mdl, quote=F, row.names=F)
+```
+

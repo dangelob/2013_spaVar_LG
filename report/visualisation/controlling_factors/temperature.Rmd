@@ -15,10 +15,14 @@ output:
   
 ***
 ```{r, echo=FALSE, message=FALSE}
+rm(list=ls())
 library(laguettevarspa)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(scales) # access to break/formatting fn
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 ```
 
 
@@ -75,3 +79,68 @@ ggplot(dfP, aes(x=T_sd, y=profondeur))+
   facet_wrap(~year)+
   theme_bw()
 ```
+
+
+
+## Mean Tair
+
+```{r, echo=FALSE, warning=FALSE, fig.width=9}
+
+T_mean_evolution <- function(profond="Tair", y_lab="température de l'air (°C)"){
+  dfm <- df %>%
+  group_by(ID_camp)%>%
+  filter(profondeur == profond)%>%
+  summarise(date=min(date),
+            year=unique(year),
+            T_sd=sd(temperature, na.rm=T),
+            temperature=mean(temperature, na.rm=T)
+            )
+  
+  ggplot(dfm, aes(x=date, y=temperature))+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=temperature-T_sd, ymax=temperature+T_sd))+
+  labs(y=y_lab)+
+  theme_bw()+
+  theme(strip.text.x = element_text(size = 14),
+        axis.text=element_text(size=14),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank())
+}
+
+```
+
+```{r, echo=FALSE, warning=FALSE, fig.width=9, fig.height=5}
+T_mean_evolution("Tair", "température de l'air (°C)")
+ggsave("Tair_mean_evolution.pdf", path=savpth)
+T_mean_evolution("T5", "température du sol à -5 cm (°C)")
+ggsave("T5_mean_evolution.pdf", path=savpth)
+```
+
+```{r, echo=FALSE, warning=FALSE, fig.width=9, fig.height=12}
+dfm <- df %>%
+  filter(profondeur %in% c("Tair","T5", "T30", "T50", "T100"))%>%
+  # filter(profondeur %in% c("Tair", "Tsurf", "T5", "T10", "T30", "T50", "T100"))%>%
+  group_by(ID_camp, profondeur)%>%
+  summarise(date=min(date),
+            year=unique(year),
+            T_sd=sd(temperature, na.rm=T),
+            temperature=mean(temperature, na.rm=T)
+            )
+
+dfm <- within(dfm, profondeur <- ordered(profondeur, levels = rev(sort(unique(profondeur)))))
+  
+  ggplot(dfm, aes(x=date, y=temperature))+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=temperature-T_sd, ymax=temperature+T_sd))+
+  labs(y="temperatures (°C)", x="2013 - 2014")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
+  facet_grid(profondeur~.)+
+  theme_bw()+
+  theme(strip.text.x = element_text(size = 14),
+        axis.text=element_text(size=14),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank())
+
+ggsave("T_mean_evolution.pdf", path=savpth)

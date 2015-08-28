@@ -17,6 +17,7 @@ library(laguettevarspa)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(scales)
 
 savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 
@@ -45,17 +46,17 @@ dfm <- df %>%
 
 ## Mean pH evolution
 
-```{r, echo=FALSE, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=9}
 ggplot(dfm, aes(x=date, y=pH, group=year))+
-  geom_point()+
-  geom_line()+
-  geom_line(aes(x=date, y=pH+pH_sd), linetype="dashed")+
-  geom_line(aes(x=date, y=pH-pH_sd), linetype="dashed")+
-#   geom_line(aes(group=profondeur))+
-#   facet_wrap(~year)+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=pH-pH_sd, ymax=pH+pH_sd))+
+  labs(y="pH", x="2013-2014")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
   theme_bw()+
-  theme(axis.text.x=element_text(angle=30, hjust=1))
-ggsave("pH_mean_evolution.pdf", path=savpth)
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank())
+ggsave("pH_mean_evolution.pdf", path=savpth, width=7, height=3)
 ```
 
 # pH for each replicate
@@ -75,17 +76,18 @@ ggsave("pH_p7_evolution.pdf", path=savpth)
 
 ## Mean conductivity evolution
 
-```{r, echo=FALSE, warning=FALSE}
-ggplot(dfm, aes(x=date, y=cond, group=year))+
-  geom_point()+
-  geom_line()+
-  geom_line(aes(x=date, y=cond+cond_sd), linetype="dashed")+
-  geom_line(aes(x=date, y=cond-cond_sd), linetype="dashed")+
-#   geom_line(aes(group=profondeur))+
-#   facet_wrap(~year)+
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=9}
+ggplot(dfm, aes(x=date, y=cond))+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=cond-cond_sd, ymax=cond+cond_sd))+
+  labs(y=expression(paste("Conductivité (", mu, S,m^-2,s^-1,")", sep="")), x="2013-2014")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
   theme_bw()+
-  theme(axis.text.x=element_text(angle=30, hjust=1))
-ggsave("cond_mean_evolution.pdf", path=savpth)
+  theme(panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank())
+
+ggsave("cond_mean_evolution.pdf", path=savpth, width=7, height=3)
 ```
 
 # cond for each replicate

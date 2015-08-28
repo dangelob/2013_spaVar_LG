@@ -32,7 +32,15 @@ savpth <- "../../../graphs/visualisation"
 ```{r load_data, eval=TRUE, echo=FALSE, message=FALSE}
 df <- svVegetation %>%
   filter(specie %in% c("molinia")) %>%
-  filter(!is.na(number))
+  filter(!is.na(number))%>%
+  mutate(cover=as.character(cover))%>%
+  mutate(cover = ifelse(cover == "<5", "0", cover))%>%
+  mutate(cover = ifelse(cover == "9999", NA, cover))%>%
+  mutate(cover = as.numeric(cover))%>%
+  mutate(height_tot = height_m*number)
+  
+
+# df$cover <- ifelse(df$cover == "<5", "0", df$cover)
 
 cover <- trt_veg()%>%
   filter(specie %in% c("molinia"))
@@ -71,4 +79,32 @@ ggsave("molin_N_height.pdf", path=savpth)
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8}
 veg_cover(cover)
 ggsave("molin_cover.pdf", path=savpth)
+```
+
+
+## Reconstruction du nombre de molinie à partir du recouvrement
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8}
+ggplot(df, aes(x=cover, y=number))+
+  geom_point(size = 4, shape=21)+
+  geom_smooth(method="lm", se=F)+
+  # facet_wrap(~placette)+
+  theme_bw()
+
+m <- lm(df$number~df$cover)
+summary(m)
+
+
+# ggsave("molin_cover.pdf", path=savpth)
+```
+
+### model normality and leverage
+
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, w=12, h=8}
+par(mfrow=c(2,2))
+hist(resid(m)) # normality
+plot(m, which=2) # normality
+plot(m, which=4) # leverage
+plot(m, which=5) # leverage
+par(mfrow=c(1,1))
 ```
