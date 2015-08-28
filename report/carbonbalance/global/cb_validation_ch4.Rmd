@@ -1,0 +1,205 @@
+
+---
+title: "Validation du modèle"
+author: "Benoît D'ANGELO"
+date: "07/04/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+---
+
+<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+
+***
+
+```{r setup, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+
+library(laguettevarspa)
+library(carbiodiv)
+library(snoweather)
+library(bdphdtoolbox)
+
+# library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 200)
+```
+
+```{r load_mdl_par}
+CH4par <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/CH4_mdlpar.csv")
+
+lCH4par <- CH4par %>%
+  gather(par, value, 2:4)%>%
+  do(na.omit(.))%>%
+  arrange(mdl, par)
+```
+
+
+```{r}
+get_pCH4 <- function(name="H_exp", df=df){
+  parCH4 <- lCH4par %>%
+    filter(mdl == name)
+  # Vérif nom mdl
+  if(NROW(parCH4) == 0){
+    cat("souci avec mdl, pas de paramètres trouvés_n")
+  }
+  
+  # retrieve par
+  a <- parCH4$val[1]
+  b <- parCH4$val[2]
+  
+  # lin or exp
+  p <- strsplit(name, "_")[[1]][1]
+  m <- strsplit(name, "_")[[1]][2]
+  
+  dft <- df[,c(p)]
+  
+  #Savoir si 1 ou plusieur variable création df ER, X1, X2
+  if(m == "exp"){
+    pCH4 <- a*exp(b*dft[,1])
+  }else{
+    pCH4 <- (a + b*dft[,1])
+  }
+  # return(pCH4)
+  return(as.vector(pCH4[,1]))
+}
+
+
+mdl_indic <- function(Y, pY, mdl){
+  mdl <- unique(mdl)
+  if(grepl("_", mdl)){
+    p <- 2
+  }else{ p <- 1}
+  # R2
+  devmean <- Y-(mean(Y, na.rm=TRUE)) # deviation à la moyenne
+  SSres <-sum((Y-pY)^2) # Total sum of squares
+  SStot <- sum(devmean^2) # Residual sum of squares
+  # 2 way to calculate
+  R2 <- (SStot-SSres)/SStot 
+  # R2 <- 1 - SSres/SStot
+  # Adjusted R2
+  N <- NROW(devmean) # sample size
+  # p <- 1 # number of predictors
+  R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+  # RMSE
+  rmse_mdl <- sqrt(mean((pY-Y)^2,na.rm=TRUE))
+  nrmse_mdl <- 100*rmse_mdl/mean(Y,na.rm=TRUE)
+  # Collect usefull param
+  df <- data.frame(R2=R2,
+                   aR2=R2a,
+                   rmse=rmse_mdl,
+                   nrmse=nrmse_mdl)
+  return(df)
+}
+
+```
+
+
+```{r load_data}
+# Données flux
+dfch4 <- cdCH4 %>%
+  filter(treatment == "C")%>%
+  select(campaign, treatment, localisation, replicate, ch4)%>%
+  group_by(campaign,  localisation)%>%
+  # group_by(campaign, localisation, replicate)%>%
+  summarise(ch4 = mean(ch4, na.rm=T))
+
+# Données végétation (a mettre dans pkg carbiodiv)
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cdIVcov.csv")%>%
+  filter(campaign > 1)%>%
+  filter(treatment == "C")%>%
+  # select(campaign, localisation, IVcov)%>%
+  mutate(replicate=as.factor(replicate))%>%
+  group_by(campaign, localisation)%>%
+  # group_by(campaign, localisation, replicate)%>%
+  summarise(IVcov = mean(IVcov, na.rm=T), H = mean(H, na.rm=T))
+
+# Création data pour campagne 1
+crea <- dfveg %>%
+  ungroup()%>%
+  filter(campaign == 2)%>%
+  mutate(campaign = 1)
+dfveg <- rbind(crea, dfveg)
+
+
+# Données météo
+dfwr1 <- wrLGT %>% # Données station
+  select(timestamp, Ta, Ts_1)%>%
+  rename(Tair=Ta, T5=Ts_1)%>%
+  filter(timestamp >= as.POSIXct("01/01/2014", format = "%d/%m/%Y"))
+dfwr2 <- cdNetFlux %>% # Tableau type données carbiodiv
+  select(timestamp, campaign, cycle_no, treatment, localisation, replicate)%>%
+  mutate(timestamp = as.POSIXct(round(timestamp, "hours")))
+dfwr <- left_join(dfwr2, dfwr1)%>% # Fusion des 2
+  # group_by(campaign, cycle_no, localisation)%>%
+  group_by(campaign, localisation)%>%
+  # group_by(campaign, localisation, replicate)%>%
+  summarise(Tair = mean(Tair, na.rm=T), T5 = mean(T5, na.rm=T))
+  
+df <- dfch4 %>%
+  left_join(., dfveg, by=c("campaign", "localisation"))%>%
+#   left_join(., dfwr)%>%
+#   ungroup()%>%
+  filter(campaign > 1)
+```
+
+```{r, compil_data}
+dfFLUX <- df %>%
+  select(ch4, localisation, IVcov, H)%>%
+  mutate(ch4 = ch4*1000) # calib faite en nmol
+# Liste des modèles à tester
+CH4_par <- c("H_exp")
+
+# Calcul prediction CH4
+predCH4 <- data.frame()
+
+for (j in CH4_par){
+    pCH4 <- get_pCH4(j, dfFLUX)
+    tpCH4 <- data.frame(CH4=dfFLUX$ch4, mdl=j, loc=dfFLUX$localisation, pCH4=pCH4)
+    predCH4 <- rbind(predCH4,tpCH4)
+}
+```
+
+```{r}
+# Tableau resultats modèles NEE
+resCH4 <- predCH4 %>%
+  do(na.omit(.))%>%
+  group_by(mdl)%>%
+  do(mdl_indic(.$CH4, .$pCH4, mdl=.$mdl))%>%
+  ungroup()%>%
+  arrange(desc(aR2))
+```
+
+# CH4
+
+```{r}
+resCH4
+```
+
+## H
+
+```{r, eval=T, fig.width=4, fig.height=4}
+dat <- filter(predCH4, mdl == "H_exp")
+
+
+plot(CH4~pCH4,
+     data=dat,
+     # xlim=c(0,10), ylim=c(0,10),
+     xlab=expression(paste("CH"[4], " modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("CH"[4], " mesurée (", mu, mol,m^-2,s^-1,")", sep="")))
+abline(a=0, b=1, col="black", lty=2)
+```
+
