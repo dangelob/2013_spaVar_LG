@@ -1,0 +1,131 @@
+---
+title: "ER -- Temperature synchronisée"
+author: "Benoît D'ANGELO"
+date: "13/05/2015"
+output:
+  html_document:
+    fig_height: 7
+    fig_width: 9
+    includes:
+      in_header: ../in_header.html
+    theme: flatly
+    toc: yes
+---
+<h3><a href="veg_toc.html"> Vegetation </a></h3>
+  
+***
+
+```{r loadenv, eval=TRUE, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+library(laguettevarspa)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(bdphdtoolbox)
+# library(xts)
+
+knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+options(width = 100)
+```
+
+```{r loaddat}
+df_met <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cTprofile.csv")%>%
+  select(timestamp, placette, T25) %>%
+  mutate(timestamp = as.POSIXct(as.character(timestamp), tz="CEST"), placette=as.character(placette))%>%
+  mutate(lag_timestamp = timestamp-12*60*60)
+
+df_CO2 <- svNetFlux %>%
+  filter(type == "ER")%>%
+  select(timestamp, placette, netCO2F, mtime)%>%
+  rename(Re = netCO2F)%>%
+  mutate(timestamp = as.POSIXct(as.character(timestamp), tz="CEST"))
+
+
+# library(carbiodiv)
+# # Manque les temperatures interpolées...
+# df_CO2 <- cdNetFlux %>%
+#   filter(type == "Re", treatment == "C")%>%
+#   select(timestamp, placette, netCO2F, mtime)%>%
+#   rename(Re = netCO2F)%>%
+#   mutate(timestamp = as.POSIXct(as.character(timestamp), tz="CEST"))
+
+```
+
+
+
+## Longueur vs Surface
+```{r}
+# Pb : données à l'heure coté station (temperature interpolé), données ponctuelle pour Re
+
+df_size <- NROW(df_CO2)
+df_out <-  data.frame()
+
+# lag_seq <- seq(from = 0, to = 1440, by=lag_step) # lag en minute
+
+lag <- 788 # time-delay en minute
+
+# Calculer le timestamp avec lag puis arrondir à l'heure la plus proche
+df_CO2$timestamp <- as.POSIXct(round((df_CO2$timestamp + lag*60),"hours"))
+
+for (i in 1:df_size){ # pour tous les enregistrements CO2
+  mobile <- df_met[which(df_met[,1] %in% c(df_CO2[i,1]) & df_met[,2] == df_CO2[i,2]),]
+#   cat(as.character(df_CO2[i,1]), "\t") # pour pouvoir suivre la progression
+#   cat(as.character(mobile[1,1]), "\t") # pour pouvoir suivre la progression
+#   cat(as.character(lag), "\n") # pour pouvoir suivre la progression
+  nline <- cbind(df_CO2[i,], mobile[,3:4])
+  df_out <- rbind(df_out, nline)
+}
+df_out$lag <- lag
+
+
+# Save data (non sync)
+# write.csv(df_out[df_out$lag == 0,], "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_JourNuit/data/processed/non_sync.csv", row.names=FALSE, quote=FALSE)
+# Save data (sync)
+# write.csv(df_out, "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_JourNuit/data/processed/all_sync.csv", row.names=FALSE, quote=FALSE)
+```
+
+
+```{r}
+df_out <- df_out[-c(394, 364, 365, 175),]
+m <- lm(log(Re)~T25, data = df_out, na.action = na.exclude)
+summary(m)
+lm_get_exp(m, details = "all")
+
+a <- exp(coef(m)[1])
+b <- coef(m)[2]
+df_out$resi <- residuals(m)
+df_out$pred <- predict(m)
+df_out$predman <- a*exp(b*df_out$T25)
+
+plot(df_out$Re~df_out$T25)
+curve(a*exp(b*x), add=T, col="blue")
+
+```
+
+### modelled vs measured
+
+```{r, fig.width=8}
+plot(df_out$Re~df_out$predman, ylim=c(0,20), xlim=c(0,20))
+abline(a=0, b=1, col="blue")
+```
+
+
+### Check for normality of the residuals
+
+```{r, fig.height=6}
+par(mfrow=c(1,2))
+hist(df_out$resi) # normality
+plot(m, which=2) # normality
+par(mfrow=c(1,1))
+```
+
+The residuals are normal
+
+### Check if some point are highly influential on the regression
+
+```{r, fig.height=6}
+par(mfrow=c(1,2))
+plot(m, which=4) # leverage
+plot(m, which=5) # leverage
+par(mfrow=c(1,1))
+```

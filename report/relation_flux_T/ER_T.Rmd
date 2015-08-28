@@ -51,8 +51,8 @@ df <- read.csv(flux_p7)%>%
   mutate(date = as.Date(date),
          T_type = factor(T_type, levels = T_levels))
 # Models data
-mdl_p7 <- file.path(proj_pth, "data", "processed", "mdl_p7.csv")
-mdl_all <- file.path(proj_pth, "data", "processed", "mdl_all.csv")
+mdl_p7 <- file.path(proj_pth, "data", "processed", "3F-T_p7_mdlpar.csv")
+mdl_all <- file.path(proj_pth, "data", "processed", "3F-T_eco_mdlpar.csv")
 
 mdl <- read.csv(mdl_p7)%>%
   filter(F_type == "ER")%>%
@@ -65,8 +65,9 @@ mdl_all <- read.csv(mdl_all)%>%
 # Create labels for plots 
 mlabel <- mdl %>%
   select(placette, T_type, equation, intercept, slope, 
-         R2, R2a, R, se, AIC, Q10)
+         R2, aR2, R, RSE, AIC, Q10)
 mlabel[,4:11] <- lapply(mlabel[,4:11], round, 2)
+mlabel[,4:11] <- lapply(mlabel[,4:11], formatC, digit=2, format="f")
 ```
 
 # Overview
@@ -86,7 +87,7 @@ summary(df$flux)
 dp <- df %>%
   filter(T_type == "Tair", F_type == "ER")
 
-ggplot(dp, aes(x=flux, y=T_value))+
+ggplot(dp, aes(y=flux, x=T_value))+
   geom_point(size=4, shape=21)+
   labs(y="Temperature", x="ER")+
   theme_bw()
@@ -135,7 +136,7 @@ ggplot(dp25, aes(y=flux, x=T_value))+
 m <- lm(log(flux)~T_value, data=dp25)
 a <- exp(coef(m)[1])
 b <- coef(m)[2]
-plot(flux~T_value, data=dp25, ylab = "ER", xlab = "T15")
+plot(flux~T_value, data=dp25, ylab = "ER", xlab = "T25")
 text(x = 5, y = 15, labels = "R2 = 0.71")
 curve(a*exp(b*x), add=TRUE, col="blue")
 
@@ -176,7 +177,10 @@ The arrhenius equation is usually close to the exponential one but lead to lower
 
 ## Air temperature
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
-plt_mdl_p7(df, Tsel = "Tair", xlab="Air temperature (°C)") # /src/report/relflT.R
+# /src/report/relflT.R
+plt_mdl_p7(df, Tsel = "Tair", xlab="Air temperature (°C)", ylab=expression(paste("respiration de l'écosystème (", mu, mol,m^-2,s^-1,")", sep="")))+ 
+geom_smooth(method="lm", se=F, color="red")
+
 ggsave("ER_Tair_p7.pdf", path=savpth, width=12, height=8)
 ```
 
@@ -202,7 +206,8 @@ distr(slplin$R2, "R2 modèle exponentiel")
 
 ## Peat temperature at 15 cm depth
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
-plt_mdl_p7(df, Tsel = "T15", xlab="15 cm depth temperature (°C)") # /src/report/relflT.R
+plt_mdl_p7(df, Tsel = "T15", xlab="température (°C) à -15 cm", ylab=expression(paste("respiration de l'écosystème (", mu, mol,m^-2,s^-1,")", sep="")))+ # /src/report/relflT.R
+geom_smooth(method="lm", se=F, color="red")
 ggsave("ER_T15_p7.pdf", path=savpth, width=12, height=8)
 
 ```
@@ -213,8 +218,53 @@ slplin <- mdl %>%
   filter(T_type == "T15", equation == "linear")%>%
   select(slope, R2)
 
+pdf(file.path(savpth, "ER_T15_p7_slope.pdf"), width=8, height=8)
 distr(slplin$slope, "pente modèle linéaire")
+# ggsave("ER_T15_p7_slope.pdf", path=savpth, width=12, height=8)
+dev.off()
+
+pdf(file.path(savpth, "ER_T15_p7_R2.pdf"), width=8, height=8)
 distr(slplin$R2, "R2 modèle linéaire")
+dev.off()
+
+```
+
+### Exponential equation
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
+slplin <- mdl %>%
+  filter(T_type == "T15", equation == "exponential")%>%
+  select(R2, Q10)
+
+distr(slplin$Q10, "Q10 modèle exponentiel")
+distr(slplin$R2, "R2 modèle exponentiel")
+```
+
+
+## Peat temperature at 25 cm depth
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
+cairo_pdf(file.path(savpth, "ER_T25_p7.pdf"), width=12, height=8)
+
+plt_mdl_p7(df, Tsel = "T25", xlab="température (°C) à -25 cm", ylab=expression(paste("respiration de l'écosystème (", mu, mol,m^-2,s^-1,")", sep="")), param=mlabel)+ # /src/report/relflT.R
+geom_smooth(method="lm", se=F, color="red")
+dev.off()
+# ggsave("ER_T25_p7.pdf", path=savpth, width=12, height=8)
+```
+
+### Linear equation
+```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=4.5 ,fig.height=4}
+slplin <- mdl %>%
+  filter(T_type == "T25", equation == "linear")%>%
+  select(slope, R2)
+
+pdf(file.path(savpth, "ER_T25_p7_slope.pdf"), width=8, height=8)
+distr(slplin$slope, "pente modèle linéaire")
+# ggsave("ER_T15_p7_slope.pdf", path=savpth, width=12, height=8)
+dev.off()
+
+pdf(file.path(savpth, "ER_T25_p7_R2.pdf"), width=8, height=8)
+distr(slplin$R2, "R2 modèle linéaire")
+dev.off()
+
 ```
 
 ### Exponential equation
@@ -230,15 +280,13 @@ distr(slplin$R2, "R2 modèle exponentiel")
 
 
 ```{r , eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
-gQ10 <- round(exp(10*summary(lm(log(df$flux)~df$T15))$coef[2]), 2)
+mdl <- df%>%
+  filter(T_type == "T15")
+m <-lm(log(df$flux)~df$T_value)
+
+gQ10 <- round(exp(10*coef(m)[2]), 2)
 gQ10
 ```
-
-```{r , eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
-gQ10 <- round(exp(10*summary(lm(log(df$flux)~df$T_Chb_N.mean))$coef[2]), 2)
-gQ10
-```
-
 
 
 

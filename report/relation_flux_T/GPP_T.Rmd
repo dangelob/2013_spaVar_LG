@@ -45,15 +45,21 @@ df <- read.csv(flux_p7)%>%
   mutate(date = as.Date(date),
          T_type = factor(T_type, levels = T_levels))
 # Models data
-mdl_p7 <- file.path(proj_pth, "data", "processed", "mdl_p7.csv")
+mdl_p7 <- file.path(proj_pth, "data", "processed", "3F-T_p7_mdlpar.csv")
+mdl_all <- file.path(proj_pth, "data", "processed", "3F-T_eco_mdlpar.csv")
+
 mdl <- read.csv(mdl_p7)%>%
+  filter(F_type == "GPP")%>%
+  mutate(T_type = factor(T_type, levels = T_levels))
+
+mdl_all <- read.csv(mdl_all)%>%
   filter(F_type == "GPP")%>%
   mutate(T_type = factor(T_type, levels = T_levels))
 
 # Create labels for plots 
 mlabel <- mdl %>%
   select(placette, T_type, equation, intercept, slope, 
-         R2, R2a, R, se, AIC, Q10)
+         R2, aR2, R, RSE, AIC, Q10)
 mlabel[,4:11] <- lapply(mlabel[,4:11], round, 2)
 ```
 
@@ -85,6 +91,39 @@ ggplot(mdl, aes(x=T_type, y=R2))+
 ```
 
 As there are a tons of regressions, first let's see an overview of the models behaviour : 
+
+### R^2^ of the models (all replicate pooled) depending on temperature measurement depth and used equation
+```{r, echo=FALSE}
+tableR2 <- mdl_all %>%
+  group_by(T_type, equation)%>%
+  summarise(R2=round(mean(R2, na.rm=T),2))%>%
+  spread(equation, R2)
+
+tableR2
+```
+
+the maximum R^2^ are `r max(tableR2$linear)`, `r max(tableR2$exponential)` and `r max(tableR2$arrhenius)`, for the linear, exponential and arrhenius equation respectively.
+For all equation the higher R^2^ mean is found for temperature measured around 10 -- 25 cm depth.
+
+```{r, echo=FALSE}
+dp25 <- df %>%
+  filter(T_type == "T25", F_type == "GPP")
+
+ggplot(dp25, aes(y=flux, x=T_value))+
+  geom_point(size=4, shape=21)+
+  labs(x="Temperature", y="GPP")+
+  geom_smooth(method="glm",family=gaussian(link="log"), se=FALSE)+
+  theme_bw()
+
+m <- lm(log(flux)~T_value, data=dp25)
+a <- exp(coef(m)[1])
+b <- coef(m)[2]
+plot(flux~T_value, data=dp25, ylab = "GPP", xlab = "T15")
+text(x = 5, y = 15, labels = "R2 = 0.71")
+curve(a*exp(b*x), add=TRUE, col="blue")
+
+
+```
 
 ### Mean R^2^ of the models depending on temperature measurement depth and used equation
 ```{r, echo=FALSE}
@@ -122,7 +161,10 @@ The arrhenius equation is usually close to the exponential one but lead to lower
 
 ## Air temperature
 ```{r , eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=8}
-plt_mdl_p7(df, Tsel = "Tair", xlab="Air temperature (°C)") # /src/report/relflT
+# plt_mdl_p7(df, Tsel = "Tair", xlab="Air temperature (°C)") # /src/report/relflT
+plt_mdl_p7(df, Tsel = "Tair", xlab="Air temperature (°C)", ylab=expression(paste("production primaire brute de l'écosystème (", mu, mol,m^-2,s^-1,")", sep="")))+ 
+geom_smooth(method="lm", se=F, color="red")
+
 ggsave("GPP_Tair_p7.pdf", path=savpth, width=12, height=8)
 ```
 

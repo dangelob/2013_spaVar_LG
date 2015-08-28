@@ -45,7 +45,7 @@ df <- read.csv(flux_p7)%>%
   mutate(date = as.Date(date),
          T_type = factor(T_type, levels = T_levels))
 # Models data
-mdl_p7 <- file.path(proj_pth, "data", "processed", "mdl_p7.csv")
+mdl_p7 <- file.path(proj_pth, "data", "processed", "3F-T_p7_mdlpar.csv")
 mdl <- read.csv(mdl_p7)%>%
   filter(F_type == "NEE")%>%
   mutate(T_type = factor(T_type, levels = T_levels))
@@ -53,7 +53,7 @@ mdl <- read.csv(mdl_p7)%>%
 # Create labels for plots 
 mlabel <- mdl %>%
   select(placette, T_type, equation, intercept, slope, 
-         R2, R2a, R, se, AIC, Q10)
+         R2, aR2, R, RSE, AIC, Q10)
 mlabel[,4:11] <- lapply(mlabel[,4:11], round, 2)
 ```
 
