@@ -4,32 +4,42 @@ author: "Benoît D'ANGELO"
 date: "23/02/2015"
 output:
   html_document:
+    code_folding: hide
     includes:
       in_header: ../../in_header.html
     theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: true
 ---
 
 <h3><a href="../vis_toc.html"> Visualisation </a></h3>
   
 ***
 
-```{r, echo=FALSE, message=FALSE}
+# Setup
+
+```{r setup, message=FALSE, warning=FALSE}
 rm(list=ls(all=TRUE))
-library(laguettevarspa)
+library(laguettevarspa) # Données "variabilité spatiale"
+
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(scales)
+
 savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 
-source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/vis_plot.R")
-# TODO
-# units on axis
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/vis_plot.R")
+source("../../../src/report/vis_plot.R")
+# fonctions : flplt, p7_fl_plt, ann_month_mean_fl, month_mean_fl
 
+
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
+source("../../../src/report/custom_colors.R")
 ```
 
-
-```{r load_data, echo=FALSE}
+```{r load_data, echo=TRUE}
 df <- svNetFlux %>%
   filter(type == "ER")%>%
   separate(date, c("year","month", "day"),remove = F) %>%
@@ -40,36 +50,86 @@ lab_Y <- expression(paste("Re (", mu, mol,m^-2,s^-1,")", sep=""))
 
 mdf <- df %>%
   group_by(ID_camp)%>%
-  summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F), date=mean(date))
+  summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F), date=mean(date))%>%
+  separate(date, c("year","month", "day"),remove = F)
+
+mpdf <- df %>%
+  group_by(placette)%>%
+  filter(ID_camp == 6)%>%
+  summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F))%>%
+  arrange(netCO2F)
+
 ```
 
-## ER measurements across field campaign
-```{r, echo=FALSE, fig.width=9}
+
+
+# Annual ER variation {.tabset}
+
+
+```{r, echo=FALSE}
 # Observation number
 nobs <- paste("N :", as.character(NROW(df)))
 # quality criteria on R2
 df$colR2 <- ifelse(df$R2 >= 0.8, ">= 0.8", "< 0.8")
+```
 
+## Raw data
+
+
+```{r raw data, message=FALSE, fig.width=9}
 flplt(df, lab_Y)+ # /src/report/vis_plot
   geom_point(aes(color=colR2), shape=21, size=4)+
   theme(legend.position=c(.9,.9), legend.key=element_blank())
 ggsave("ER_evolution.pdf", path=savpth)
+```
 
+## Averaged by campaign
+
+
+```{r, fig.width=9}
 ggplot(mdf, aes(x=date, y=netCO2F))+
   geom_point(size=3)+
+  annotate("text", x=as.Date("2015-03-01"), y=12, label="B", size=5)+
   geom_linerange(aes(x=date, ymin=netCO2F-netCO2F_sd, ymax=netCO2F+netCO2F_sd))+
-  labs(y=lab_Y, x="2013-2014")+
+  labs(y=lab_Y, x="")+
   scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
-  theme_bw()+
-  theme(panel.grid.major.x = element_blank(), # DIAPO
-        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
-        panel.grid.minor = element_blank()) # DIAPO)
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
 ggsave("ER_evolution_avg.pdf", path=savpth, width=7, height=3)
 ```
+
+## Figure diapo
+
+```{r, fig.width=9}
+### DIAPO
+ggplot(mdf, aes(x=date, y=netCO2F))+
+  geom_point(size=3, color=drouge)+
+  annotate("text", x=as.Date("2015-02-01"), y=15, label="N=20", size=4)+
+  #2013
+  annotate("text", x=as.Date("2013-06-15"), y=15, label="2013", size=5)+
+  annotate("text", x=as.Date("2013-12-01"), y=5.27, label="4,27", size=5, color=orange)+
+  annotate("segment", x=as.Date("2013-03-05"), xend=as.Date("2013-12-15"), y=4.27, yend=4.27, linetype="dashed", size=1, color=orange)+
+  #2014
+  annotate("text", x=as.Date("2014-06-15"), y=15, label="2014", size=5)+
+  annotate("text", x=as.Date("2014-12-01"), y=4.63, label="3,63", size=5, color=orange)+
+  annotate("segment", x=as.Date("2014-03-15"), xend=as.Date("2014-12-15"), y=3.63, yend=3.63, linetype="dashed", size=1, color=orange)+
+  geom_linerange(aes(x=date, ymin=netCO2F-netCO2F_sd, ymax=netCO2F+netCO2F_sd), color=drouge)+
+  labs(y=lab_Y, x="")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
+ggsave("VS_RE_avg.pdf", path=savpth, width=7, height=3)
+```
+
+# autre
 
 ## Annual mean differences significance:
 
 ```{r}
+t <- mdf %>%
+  arrange(desc(netCO2F))
+head(t)
+
 A <- filter(df, year==2013)
 B <- filter(df, year==2014)
 t.test(A$netCO2F, B$netCO2F)
