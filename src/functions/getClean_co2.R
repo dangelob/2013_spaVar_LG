@@ -8,7 +8,7 @@
 # Setup -------------------------------------------------------------------
 rm(list=ls(all=TRUE))
 library(laguettevarspa)
-library(bdphdtoolbox)
+# library(bdphdtoolbox)
 library(dplyr)
 library(tidyr)
 
@@ -47,5 +47,8 @@ dGPP <- rename(dGPP, flux=GPP)
 # Merge all flux data
 dflux <- bind_rows(dRe, dNEE, dGPP)
 
-filepath_mdl <- paste0(outpath, "/3F_data.csv")
-write.csv(dflux, filepath_mdl, quote=F, row.names=F)
+# Save treatement in file -------------------------------------------------
+write.csv(dflux, file.path(outpath, "cl_CO2.csv"), quote=F, row.names=F)
+
+# filepath_mdl <- paste0(outpath, "/3F_data.csv")
+# write.csv(dflux, filepath_mdl, quote=F, row.names=F)
