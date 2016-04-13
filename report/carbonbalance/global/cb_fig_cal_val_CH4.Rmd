@@ -4,17 +4,26 @@ author: "Benoît D'ANGELO"
 date: "21/07/2015"
 output:
   html_document:
+    code_folding: hide
     fig_height: 3
     fig_width: 7
     includes:
       in_header: ../../in_header.html
     theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: true
 ---
 
 <h3><a href="../vis_toc.html"> Visualisation </a></h3>
 ***
 
-```{r, echo=FALSE, message=FALSE}
+# Setup
+
+## Load packages and functions
+
+```{r, message=FALSE}
+# File name : /2013_spavar_LG/report/carbonbalance/global/cb_fig_cal_val_CH4.Rmd
 rm(list=ls(all=TRUE))
 
 library(laguettevarspa)
@@ -32,9 +41,7 @@ savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/grap
 
 outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
 
-# TODO
-# units on axis
-opts_chunk$set(echo = F)
+# opts_chunk$set(echo = T)
 options(width = 100)
 
 ```
