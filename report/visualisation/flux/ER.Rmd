@@ -179,12 +179,12 @@ The normality tests are available [here](flux_norm_test.html)
 
 ## Montly ER means per year
 
-```{r, echo=FALSE}
-ann_month_mean_fl(df, lab_Y)
+```{r, echo=TRUE}
+ann_month_mean_fl(df, lab_Y) # plot function location: /src/report/vis_plot
 ```
 
 ## Montly ER mean (pooling all years)
 
-```{r, echo=FALSE}
-month_mean_fl(df, lab_Y)
+```{r, echo=TRUE}
+month_mean_fl(df, lab_Y) # plot function location: /src/report/vis_plot
 ```
