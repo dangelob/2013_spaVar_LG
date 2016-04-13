@@ -19,6 +19,8 @@ output:
 
 # Setup
 
+## Load packages and functions
+
 ```{r setup, message=FALSE, warning=FALSE}
 rm(list=ls(all=TRUE))
 library(laguettevarspa) # Données "variabilité spatiale"
@@ -39,52 +41,68 @@ source("../../../src/report/vis_plot.R")
 source("../../../src/report/custom_colors.R")
 ```
 
+## Load and transform data
+
 ```{r load_data, echo=TRUE}
+# Load data from package
 df <- svNetFlux %>%
   filter(type == "ER")%>%
   separate(date, c("year","month", "day"),remove = F) %>%
   separate(timestamp, c("ts_date", "time"), sep=" ") %>%
   mutate(time = substr(time, 1, 5), ID_camp = as.factor(ID_camp))
 
-lab_Y <- expression(paste("Re (", mu, mol,m^-2,s^-1,")", sep=""))
-
+# Average data by campaign
 mdf <- df %>%
   group_by(ID_camp)%>%
   summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F), date=mean(date))%>%
   separate(date, c("year","month", "day"),remove = F)
 
+# Average data by measurement point
 mpdf <- df %>%
   group_by(placette)%>%
   filter(ID_camp == 6)%>%
   summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F))%>%
   arrange(netCO2F)
 
+# Setup Y axis label
+lab_Y <- expression(paste("Re (", mu, mol,m^-2,s^-1,")", sep=""))
 ```
 
 
 
-# Annual ER variation {.tabset}
+# Annual ER variation 
+
+## Annual ER average
+
+```{r, comment=NULL}
+aa <- df %>%
+  group_by(year) %>%
+  summarise(ER = round(mean(netCO2F, na.rm=T),2), ER_sd = round(sd(netCO2F, na.rm=T),2))
+
+as.data.frame(aa)
+```
 
 
-```{r, echo=FALSE}
+## All data points {.tabset}
+
+
+### All data
+
+```{r}
 # Observation number
 nobs <- paste("N :", as.character(NROW(df)))
 # quality criteria on R2
 df$colR2 <- ifelse(df$R2 >= 0.8, ">= 0.8", "< 0.8")
 ```
 
-## Raw data
-
-
 ```{r raw data, message=FALSE, fig.width=9}
-flplt(df, lab_Y)+ # /src/report/vis_plot
+flplt(df, lab_Y)+ # plot function location: /src/report/vis_plot
   geom_point(aes(color=colR2), shape=21, size=4)+
   theme(legend.position=c(.9,.9), legend.key=element_blank())
 ggsave("ER_evolution.pdf", path=savpth)
 ```
 
-## Averaged by campaign
-
+### Averaged by campaign (B&W)
 
 ```{r, fig.width=9}
 ggplot(mdf, aes(x=date, y=netCO2F))+
@@ -98,7 +116,7 @@ ggplot(mdf, aes(x=date, y=netCO2F))+
 ggsave("ER_evolution_avg.pdf", path=savpth, width=7, height=3)
 ```
 
-## Figure diapo
+### Averaged by campaign (color)
 
 ```{r, fig.width=9}
 ### DIAPO
@@ -121,15 +139,32 @@ ggplot(mdf, aes(x=date, y=netCO2F))+
 ggsave("VS_RE_avg.pdf", path=savpth, width=7, height=3)
 ```
 
-# autre
+### Averaged by campaign (data)
+
+```{r, results="asis"}
+tbl <- as.data.frame(mdf[,1:4])%>%
+  mutate(ER=round(netCO2F, 2), ER_sd=round(netCO2F_sd,2))%>%
+  select(ID_camp, date, ER, ER_sd)
+
+knitr::kable(tbl, caption="ER fluxes averaged by campaign")
+```
+
+## Individual measurement points
+
+```{r, fig.width=10, fig.height=6}
+p7_fl_plt(df, lab_Y)+ # plot function location: /src/report/vis_plot
+  geom_point(aes(color=colR2))+
+  scale_colour_manual(values=c("red","black"))
+ggsave("ER_p7_evolution.pdf", path=savpth)
+```
+
+
+
+# Autre
 
 ## Annual mean differences significance:
 
 ```{r}
-t <- mdf %>%
-  arrange(desc(netCO2F))
-head(t)
-
 A <- filter(df, year==2013)
 B <- filter(df, year==2014)
 t.test(A$netCO2F, B$netCO2F)
@@ -139,21 +174,8 @@ t.test(A$netCO2F, B$netCO2F)
 
 The normality tests are available [here](flux_norm_test.html)
 
-## Individual plot measurements
 
-```{r, echo=FALSE, fig.width=10, fig.height=6}
-p7_fl_plt(df, lab_Y)+
-  geom_point(aes(color=colR2))+
-  scale_colour_manual(values=c("red","black"))
-ggsave("ER_p7_evolution.pdf", path=savpth)
-```
 
-## Annual mean and standard deviation
-```{r, echo=FALSE}
-df %>%
-  group_by(year) %>%
-  summarise(ER = round(mean(netCO2F, na.rm=T),2), ER_sd = round(sd(netCO2F, na.rm=T),2))
-```
 
 ## Montly ER means per year
 
