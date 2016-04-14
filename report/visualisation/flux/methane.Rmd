@@ -52,6 +52,105 @@ source("../../../src/report/custom_colors.R")
 # source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
 ```
 
+## Load and transform data
+
+```{r}
+# Load data from package (laguettevarspa)
+all <- svCH4 %>%
+  separate(date, c("year","month", "day"),remove = F)%>%
+  mutate(date=as.Date(date, format="%Y-%m-%d"))%>%
+  filter(CH4 < 1, plot != "ETREPEE")
+
+# Average data by campaign and measurement point
+m <- all %>%
+  group_by(date, plot)%>%
+  summarise(CH4=mean(CH4, na.rm=T))
+
+# Average data by campaign
+mm <- all %>%
+  group_by(ID_camp)%>%
+  summarise(date=min(date, na.rm=T), CH4_sd=sd(CH4, na.rm=T), CH4=mean(CH4, na.rm=T), N=n())
+```
+
+# Annual CH4 variation 
+
+## Annual CH4 average
+
+```{r, comment=NULL}
+aa <- all %>%
+  group_by(year) %>%
+  summarise(CH4_m = round(mean(CH4, na.rm=T),2), CH4_sd = round(sd(CH4, na.rm=T),2))
+
+as.data.frame(aa)
+```
+
+## All data points {.tabset}
+
+All CH4 measurements point on La Guette peatland, excluding CARBIODIV measurements but including the other "non-spatial variability" measurement point (ETREPEE and 5bis plot for instance)
+
+### All data 
+
+```{r, raw data , message=FALSE, fig.width=9}
+ggplot(all , aes(x=date, y=CH4, color=plot))+
+  geom_point(size=3)+
+  theme_bw()
+```
+
+### mean per plot
+
+```{r, fig.width=9}
+ggplot(m, aes(x=date, y=CH4, color=plot))+
+  geom_point(size=3)+
+  theme_bw()
+```
+
+### Averaged by campaign (B&W)
+
+```{r, fig.width=9}
+ggplot(mm, aes(x=date, y=CH4))+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=CH4-CH4_sd, ymax=CH4+CH4_sd))+
+  # xlim(as.Date("2013-04-23"), as.Date("2015-02-01"))+
+  labs(y=expression(paste("CH"[4], " (", mu, mol,m^-2,s^-1,")", sep="")), x="2013-2014")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
+ggsave("CH4_evolution_avg.pdf", path=savpth, width=7, height=3)
+```
+
+### Averaged by campaign (color)
+
+```{r, fig.width=9}
+ggplot(mm, aes(x=date, y=CH4))+
+  geom_point(size=3, color=drouge)+
+  annotate("text", x=as.Date("2015-01-01"), y=0.30, label="N=5", size=4)+
+  #2013
+  annotate("text", x=as.Date("2013-06-15"), y=0.30, label="2013", size=5)+
+  annotate("text", x=as.Date("2013-12-05"), y=0.05, label="0,04", size=5, color=orange)+
+  annotate("segment", x=as.Date("2013-03-05"), xend=as.Date("2013-12-15"), y=0.04, yend=0.04, linetype="dashed", size=1, color=orange)+
+  #2014
+  annotate("text", x=as.Date("2014-06-15"), y=0.30, label="2014", size=5)+
+  annotate("text", x=as.Date("2014-12-11"), y=0.11, label="0,10", size=5, color=orange)+
+  annotate("segment", x=as.Date("2014-03-15"), xend=as.Date("2014-12-15"), y=0.10, yend=0.10, linetype="dashed", size=1, color=orange)+
+  geom_linerange(aes(x=date, ymin=CH4-CH4_sd, ymax=CH4+CH4_sd), color=drouge)+
+  labs(y=expression(paste("CH"[4], " (", mu, mol,m^-2,s^-1,")", sep="")), x="")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
+ggsave("VS_CH4_avg.pdf", path=savpth, width=7, height=3)
+```
+
+
+
+
+
+
+
+
+
+
+
+
 ## Load functions
 
 ```{r}
@@ -316,69 +415,7 @@ summary(lm(log(t$CH4)~t$WTL))$r.squared
 ```
 
 
-## All methane points
 
-```{r}
-all <- svCH4 %>%
-  mutate(date=as.Date(date, format="%Y-%m-%d"))%>%
-  filter(CH4 < 1, plot != "ETREPEE")
-
-ggplot(all , aes(x=date, y=CH4, color=plot))+
-  geom_point(size=3)+
-  theme_bw()
-```
-
-## mean per plot
-
-```{r}
-m <- all %>%
-  group_by(date, plot)%>%
-  summarise(CH4=mean(CH4, na.rm=T))
-
-ggplot(m, aes(x=date, y=CH4, color=plot))+
-  geom_point(size=3)+
-#   geom_line()+
-  theme_bw()
-```
-
-## mean per campaign
-
-```{r}
-mm <- all %>%
-  group_by(ID_camp)%>%
-  summarise(date=min(date, na.rm=T), CH4_sd=sd(CH4, na.rm=T), CH4=mean(CH4, na.rm=T), N=n())
-
-ggplot(mm, aes(x=date, y=CH4))+
-  geom_point(size=3)+
-  geom_linerange(aes(x=date, ymin=CH4-CH4_sd, ymax=CH4+CH4_sd))+
-  xlim(as.Date("2013-04-23"), as.Date("2015-02-01"))+
-  labs(y=expression(paste("CH"[4], " (", mu, mol,m^-2,s^-1,")", sep="")), x="2013-2014")+
-  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
-  theme_classic()+
-  theme(plot.margin=unit(c(0,0,0,0),"mm"))
-ggsave("CH4_evolution_avg.pdf", path=savpth, width=7, height=3)
-
-
-
-ggplot(mm, aes(x=date, y=CH4))+
-  geom_point(size=3, color=drouge)+
-  annotate("text", x=as.Date("2015-01-01"), y=0.30, label="N=5", size=4)+
-  #2013
-  annotate("text", x=as.Date("2013-06-15"), y=0.30, label="2013", size=5)+
-  annotate("text", x=as.Date("2013-12-05"), y=0.05, label="0,04", size=5, color=orange)+
-  annotate("segment", x=as.Date("2013-03-05"), xend=as.Date("2013-12-15"), y=0.04, yend=0.04, linetype="dashed", size=1, color=orange)+
-  #2014
-  annotate("text", x=as.Date("2014-06-15"), y=0.30, label="2014", size=5)+
-  annotate("text", x=as.Date("2014-12-11"), y=0.11, label="0,10", size=5, color=orange)+
-  annotate("segment", x=as.Date("2014-03-15"), xend=as.Date("2014-12-15"), y=0.10, yend=0.10, linetype="dashed", size=1, color=orange)+
-  geom_linerange(aes(x=date, ymin=CH4-CH4_sd, ymax=CH4+CH4_sd), color=drouge)+
-  labs(y=expression(paste("CH"[4], " (", mu, mol,m^-2,s^-1,")", sep="")), x="")+
-  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
-  theme_classic()+
-  theme(plot.margin=unit(c(0,0,0,0),"mm"))
-ggsave("VS_CH4_avg.pdf", path=savpth, width=7, height=3)
-
-```
 
 # Le Méthane de la VS
 
