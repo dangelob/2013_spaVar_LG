@@ -194,3 +194,6 @@ knitr::kable(linexp, caption="CH4 relation with environmental variable using lin
 
 ```
 
+These R2 values might be slightly different from those described in the "calibration" part concerning methane. That's because these values were obtained with linear regression (and transformation for the exponential model) whereas the others were obtained using non-linear algorithms.
+
+
