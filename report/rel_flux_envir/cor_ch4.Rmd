@@ -26,9 +26,7 @@ output:
 rm(list=ls(all=TRUE)) # Clean start
 
 # Homemade packages (see "Howto" page to install them)
-library(laguettevarspa) # spatial variability data
-library(snoweather)     # weather station data
-library(bdphdtoolbox)
+library(bdphdtoolbox) # Personal toolbox
 
 # CRAN packages
 library(dplyr)

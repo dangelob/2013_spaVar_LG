@@ -1,5 +1,5 @@
 ---
-title: "cal_campAvg_ch4"
+title: "Calibration ch4 (moy/campagne)"
 author: "Benoît D'ANGELO"
 date: "14 avril 2016"
 output:
@@ -27,9 +27,7 @@ output:
 rm(list=ls(all=TRUE)) # Clean start
 
 # Homemade packages (see "Howto" page to install them)
-library(laguettevarspa) # spatial variability data
-library(snoweather)     # weather station data
-library(bdphdtoolbox)
+library(bdphdtoolbox)     # personnal toolbox
 
 # CRAN packages
 library(dplyr)
