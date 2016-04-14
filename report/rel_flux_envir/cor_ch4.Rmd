@@ -1,0 +1,196 @@
+---
+title: "CH4 relations with environmental variables"
+author: "Benoît D'ANGELO"
+date: "14 avril 2016"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 3
+    fig_width: 7
+    includes:
+      in_header: ../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+---
+
+<h3><a href="../cor_toc.html"> Relation fluxes/variables environnementale </a></h3>
+
+# Setup
+
+## Load packages and set paths
+
+```{r, message=FALSE}
+# File name : /2013_spavar_LG/report/rel_flux_envir/cor_ch4.Rmd
+rm(list=ls(all=TRUE)) # Clean start
+
+# Homemade packages (see "Howto" page to install them)
+library(laguettevarspa) # spatial variability data
+library(snoweather)     # weather station data
+library(bdphdtoolbox)
+
+# CRAN packages
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(scales)
+
+# Folder to save graphes
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
+
+# Folder to save data treatement
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+# allow wider tables and graphes in html output
+options(width = 100)
+
+# Load custom color set
+source("../../src/report/custom_colors.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
+```
+
+## Load and transform data
+
+```{r load_data}
+# Load treated data (generated with getClean_fluxesFC)
+dfges <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC.csv")%>%
+  mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
+  mutate(date=as.POSIXct(as.character(date)))
+  
+# Campaign average
+dfgesm <- dfges %>%
+  group_by(ID_camp)%>%
+  summarise(
+            GPP_sd = sd(GPP, na.rm=T),
+            GPP = mean(GPP, na.rm=T),
+            ER_sd = sd(ER, na.rm=T),
+            ER = mean(ER, na.rm=T),
+            NEE_sd = sd(NEE, na.rm=T),
+            NEE = mean(NEE, na.rm=T),
+            CH4_sd = sd(CH4, na.rm=T),
+            CH4 = mean(CH4, na.rm=T),
+            date=min(date, na.rm=T),
+            timestamp=mean(timestamp, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            TairS=mean(TairS, na.rm=T),
+            T5S=mean(T5S, na.rm=T),
+            T10S=mean(T10S, na.rm=T),
+            T20S=mean(T20S, na.rm=T),
+            T40S=mean(T40S, na.rm=T),
+            T5=mean(T5, na.rm=T),
+            T10=mean(T10, na.rm=T),
+            T20=mean(T20, na.rm=T),
+            T30=mean(T30, na.rm=T),
+            T40=mean(T40, na.rm=T),
+            T50=mean(T50, na.rm=T),
+            T60=mean(T60, na.rm=T),
+            T70=mean(T70, na.rm=T),
+            T80=mean(T80, na.rm=T),
+            T90=mean(T90, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T),
+            A=mean(A, na.rm=T),
+            H=mean(H, na.rm=T),
+            M=mean(M, na.rm=T),
+            WTL=mean(WTL, na.rm=T)
+            )%>%
+  mutate(date = as.POSIXct(date, format="%Y-%m-%d"))
+```
+
+# CH4 vs environmental variable 
+
+## Correlation matrix {.tabset}
+
+### Vegetation and Water table level
+
+```{r, fig.height=8, fig.width=8}
+# dfges dfgesm
+sel <- dfgesm %>%
+  filter(!is.na(CH4))%>%
+  mutate(CH4=CH4*1000)%>%
+  select(CH4, A, H, M, IVcov, WTL)
+pairs(sel, lower.panel = panel_cor, cex.labels = 2) # panel_cor function from bdphdtoolbox
+```
+
+With:
+
+* A : Shrub layer cover in percentage (fr: Arbuste)
+* H : Herbs layer cover in percentage (fr: Herabacées)
+* M : Mosses layer cover in percentage (fr: Mousses)
+
+### Temperatures
+
+```{r, fig.height=8, fig.width=8}
+sel <- dfgesm %>%
+  filter(!is.na(CH4))%>%
+  select(CH4,Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80)
+pairs(sel, lower.panel = panel_cor, cex.labels = 2)
+```
+
+## CH4 vs temperature: R2 evolution with depth
+
+Using CH4=a*exp(b*Temperature)
+
+```{r, fig.width=5, fig.height=7}
+t <- dfgesm %>%
+  select(CH4, WTL, A, H, M, IVcov, Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80, T90)
+
+# plot(t$CH4~t$T50)
+# summary(lm(t$CH4~t$T40))
+R1 <- summary(lm(log(t$CH4)~t$Tair))$r.squared
+R2 <- summary(lm(log(t$CH4)~t$T5))$r.squared
+R3 <- summary(lm(log(t$CH4)~t$T10))$r.squared
+R4 <- summary(lm(log(t$CH4)~t$T20))$r.squared
+R5 <- summary(lm(log(t$CH4)~t$T30))$r.squared
+R6 <- summary(lm(log(t$CH4)~t$T40))$r.squared
+R7 <- summary(lm(log(t$CH4)~t$T50))$r.squared
+R8 <- summary(lm(log(t$CH4)~t$T60))$r.squared
+R9 <- summary(lm(log(t$CH4)~t$T70))$r.squared
+R10 <- summary(lm(log(t$CH4)~t$T80))$r.squared
+R11 <- summary(lm(log(t$CH4)~t$T90))$r.squared
+# summary(lm(log(t$CH4)~t$T100))$r.squared
+
+p <- data.frame(prof=c(10, -5, -10, -20, -30, -40, -50, -60, -70, -80, -90),
+                R2=c(R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11))
+
+ggplot(p, aes(x=R2, y=prof))+
+  annotate("rect", xmin=-Inf, xmax=Inf, ymin=-18.2, ymax=-5.1, fill = lbleu)+
+  annotate("rect", xmin=-Inf, xmax=Inf, ymin=-9.2, ymax=-7.1, fill = dbleu)+
+  geom_point(size=3, color=gris)+
+  geom_hline(yintercept = 0, linetype="dashed", color=lgris)+
+  annotate("text", x=0.75, y=-3.2, label="nappe", color=bleu)+
+  annotate("text", x=0.67, y=2, label="surface du sol", color=gris)+
+  labs(x=expression(R^2), y="profondeur (en cm)")+
+  theme_classic()+
+  theme(plot.margin=unit(c(1,1,0,0),"mm"))
+ggsave("CH4_T_exp.pdf", path=savpth, width=3.5, height=5)
+```
+
+## CH4 vs vegetation and water table level
+
+
+```{r}
+lin_A <- round(summary(lm(t$CH4~t$A))$r.squared,2)
+lin_H <- round(summary(lm(t$CH4~t$H))$r.squared,2)
+lin_M <- round(summary(lm(t$CH4~t$M))$r.squared,2)
+lin_IVcov <- round(summary(lm(t$CH4~t$IVcov))$r.squared,2)
+lin_WTL <- round(summary(lm(t$CH4~t$WTL))$r.squared,2)
+
+exp_A <- round(summary(lm(log(t$CH4)~t$A))$r.squared,2)
+exp_H <- round(summary(lm(log(t$CH4)~t$H))$r.squared,2)
+exp_M <- round(summary(lm(log(t$CH4)~t$M))$r.squared,2)
+exp_IVcov <- round(summary(lm(log(t$CH4)~t$IVcov))$r.squared,2)
+exp_WTL <- round(summary(lm(log(t$CH4)~t$WTL))$r.squared,2)
+
+linexp <- data.frame(equation=c("lin", "exp"),
+                     A=c(lin_A, exp_A),
+                     H=c(lin_H, exp_H),
+                     M=c(lin_M, exp_M),
+                     IVcov=c(lin_IVcov, exp_IVcov),
+                     WTL=c(lin_WTL, exp_WTL))
+
+knitr::kable(linexp, caption="CH4 relation with environmental variable using linear and exponential equations (R2 values)")
+
+```
+
