@@ -22,7 +22,7 @@ output:
 
 ## Load packages and set paths
 
-```{r, message=FALSE}
+```{r ld_pckg, message=FALSE}
 # File name : /2013_spavar_LG/report/visualisation/flux/methane.Rmd
 rm(list=ls(all=TRUE)) # Clean start
 
@@ -52,7 +52,7 @@ source("../../../src/report/custom_colors.R")
 
 ## Load functions
 
-```{r}
+```{r ld_fn}
 mdl_exp <- function(df, strt=list(a=0.1, b=0.3)){
 mdl <- nls(Y ~ a * exp(b*X), data=df, start=strt, na.action = na.exclude)
 }
@@ -112,7 +112,7 @@ text(.16,.17, "1:1", srt=45)
 
 ## Load and transform data
 
-```{r}
+```{r ld_data}
 # Load treated data (generated with getClean_fluxesFC)
 dfges <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC.csv")%>%
   mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
@@ -158,7 +158,7 @@ dfgesm <- dfges %>%
 ```
 
 # Calculations
-```{r}
+```{r mdl_calc}
 # tt <- dfgesm %>%
 #   mutate(Y=CH4, X=WTL)
 # 
@@ -222,6 +222,9 @@ par_A_lin <- mdl_param(dmdl_A, mdl_A_lin)
 mdl_A_exp <- mdl_exp(dmdl_A, strt=list(a=.1, b=0.01))
 par_A_exp <- mdl_param(dmdl_A, mdl_A_exp)
 
+```
+
+```{r mdl_output}
 # Resume
 mdlls <- c("IVcov_lin", "IVcov_exp", "H_lin", "H_exp", "A_lin","A_exp", "T40_exp", "T80_exp")
 
@@ -404,11 +407,10 @@ plot(t$F_val~t$FC_val)
 ```
 
 # Data
-```{r}
+```{r sav_mdl_par}
 export <- res %>%
   select(mdl, a, b, c)
 
-filepath_mdl <- paste0(outpth, "/CH4_mdlpar.csv")
-write.csv(export, filepath_mdl, quote=F, row.names=F)
+write.csv(export, file.path(outpth, "/CH4_mdlpar.csv"), quote=F, row.names=F)
 ```
 
