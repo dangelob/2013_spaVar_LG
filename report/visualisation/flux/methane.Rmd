@@ -151,6 +151,9 @@ ggsave("VS_CH4_avg.pdf", path=savpth, width=7, height=3)
 
 
 
+
+
+
 ## Load functions
 
 ```{r}
@@ -355,63 +358,63 @@ dfgesm <- dfges %>%
             )%>%
   mutate(date = as.POSIXct(date, format="%Y-%m-%d"))
 
-# average per year
-myr <- dfges %>%
-  select(date, CH4)%>%
-  separate(date, c("y", "m", "d"), sep="-")%>%
-  group_by(y)%>%
-  summarise(CH4_sd = sd(CH4, na.rm=T),
-            CH4 = mean(CH4, na.rm=T))
-
-  
-# test
-t <- dfgesm %>%
-  select(CH4, WTL, A, H, M, IVcov, Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80, T90)
-
-plot(t$CH4~t$T50)
-# summary(lm(t$CH4~t$T40))
-R1 <- summary(lm(log(t$CH4)~t$Tair))$r.squared
-R2 <- summary(lm(log(t$CH4)~t$T5))$r.squared
-R3 <- summary(lm(log(t$CH4)~t$T10))$r.squared
-R4 <- summary(lm(log(t$CH4)~t$T20))$r.squared
-R5 <- summary(lm(log(t$CH4)~t$T30))$r.squared
-R6 <- summary(lm(log(t$CH4)~t$T40))$r.squared
-R7 <- summary(lm(log(t$CH4)~t$T50))$r.squared
-R8 <- summary(lm(log(t$CH4)~t$T60))$r.squared
-R9 <- summary(lm(log(t$CH4)~t$T70))$r.squared
-R10 <- summary(lm(log(t$CH4)~t$T80))$r.squared
-R11 <- summary(lm(log(t$CH4)~t$T90))$r.squared
-# summary(lm(log(t$CH4)~t$T100))$r.squared
-
-p <- data.frame(prof=c(10, -5, -10, -20, -30, -40, -50, -60, -70, -80, -90),
-                R2=c(R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11))
-
-plot(p$prof~p$R2)
-ggplot(p, aes(x=R2, y=prof))+
-  annotate("rect", xmin=-Inf, xmax=Inf, ymin=-18.2, ymax=-5.1, fill = lbleu)+
-  annotate("rect", xmin=-Inf, xmax=Inf, ymin=-9.2, ymax=-7.1, fill = dbleu)+
-  geom_point(size=3, color=gris)+
-  geom_hline(yintercept = 0, linetype="dashed", color=lgris)+
-  annotate("text", x=0.75, y=-3.2, label="nappe", color=bleu)+
-  annotate("text", x=0.67, y=2, label="surface du sol", color=gris)+
-  labs(x=expression(R^2), y="profondeur (en cm)")+
-  theme_classic()+
-  theme(plot.margin=unit(c(1,1,0,0),"mm"))
-ggsave("CH4_T_exp.pdf", path=savpth, width=3.5, height=5)
-
-summary(lm(log(t$CH4)~t$A))$r.squared
-summary(lm(log(t$CH4)~t$H))$r.squared
-summary(lm(log(t$CH4)~t$M))$r.squared
-summary(lm(log(t$CH4)~t$IVcov))$r.squared
-summary(lm(t$CH4~t$A))$r.squared
-summary(lm(t$CH4~t$H))$r.squared
-summary(lm(t$CH4~t$M))$r.squared
-summary(lm(t$CH4~t$IVcov))$r.squared
-
-
-summary(lm(log(t$CH4)~t$WTL))$r.squared
-# plot(log(t$CH4)~t$WTL)
-# plot(t$CH4~log(t$WTL))
+# # average per year
+# myr <- dfges %>%
+#   select(date, CH4)%>%
+#   separate(date, c("y", "m", "d"), sep="-")%>%
+#   group_by(y)%>%
+#   summarise(CH4_sd = sd(CH4, na.rm=T),
+#             CH4 = mean(CH4, na.rm=T))
+# 
+#   
+# # test
+# t <- dfgesm %>%
+#   select(CH4, WTL, A, H, M, IVcov, Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80, T90)
+# 
+# plot(t$CH4~t$T50)
+# # summary(lm(t$CH4~t$T40))
+# R1 <- summary(lm(log(t$CH4)~t$Tair))$r.squared
+# R2 <- summary(lm(log(t$CH4)~t$T5))$r.squared
+# R3 <- summary(lm(log(t$CH4)~t$T10))$r.squared
+# R4 <- summary(lm(log(t$CH4)~t$T20))$r.squared
+# R5 <- summary(lm(log(t$CH4)~t$T30))$r.squared
+# R6 <- summary(lm(log(t$CH4)~t$T40))$r.squared
+# R7 <- summary(lm(log(t$CH4)~t$T50))$r.squared
+# R8 <- summary(lm(log(t$CH4)~t$T60))$r.squared
+# R9 <- summary(lm(log(t$CH4)~t$T70))$r.squared
+# R10 <- summary(lm(log(t$CH4)~t$T80))$r.squared
+# R11 <- summary(lm(log(t$CH4)~t$T90))$r.squared
+# # summary(lm(log(t$CH4)~t$T100))$r.squared
+# 
+# p <- data.frame(prof=c(10, -5, -10, -20, -30, -40, -50, -60, -70, -80, -90),
+#                 R2=c(R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11))
+# 
+# plot(p$prof~p$R2)
+# ggplot(p, aes(x=R2, y=prof))+
+#   annotate("rect", xmin=-Inf, xmax=Inf, ymin=-18.2, ymax=-5.1, fill = lbleu)+
+#   annotate("rect", xmin=-Inf, xmax=Inf, ymin=-9.2, ymax=-7.1, fill = dbleu)+
+#   geom_point(size=3, color=gris)+
+#   geom_hline(yintercept = 0, linetype="dashed", color=lgris)+
+#   annotate("text", x=0.75, y=-3.2, label="nappe", color=bleu)+
+#   annotate("text", x=0.67, y=2, label="surface du sol", color=gris)+
+#   labs(x=expression(R^2), y="profondeur (en cm)")+
+#   theme_classic()+
+#   theme(plot.margin=unit(c(1,1,0,0),"mm"))
+# ggsave("CH4_T_exp.pdf", path=savpth, width=3.5, height=5)
+# 
+# summary(lm(log(t$CH4)~t$A))$r.squared
+# summary(lm(log(t$CH4)~t$H))$r.squared
+# summary(lm(log(t$CH4)~t$M))$r.squared
+# summary(lm(log(t$CH4)~t$IVcov))$r.squared
+# summary(lm(t$CH4~t$A))$r.squared
+# summary(lm(t$CH4~t$H))$r.squared
+# summary(lm(t$CH4~t$M))$r.squared
+# summary(lm(t$CH4~t$IVcov))$r.squared
+# 
+# 
+# summary(lm(log(t$CH4)~t$WTL))$r.squared
+# # plot(log(t$CH4)~t$WTL)
+# # plot(t$CH4~log(t$WTL))
 ```
 
 
