@@ -57,43 +57,11 @@ dfges <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar
   mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
   mutate(date=as.POSIXct(as.character(date)))
   
-# Campaign average
-dfgesm <- dfges %>%
-  group_by(ID_camp)%>%
-  summarise(
-            GPP_sd = sd(GPP, na.rm=T),
-            GPP = mean(GPP, na.rm=T),
-            ER_sd = sd(ER, na.rm=T),
-            ER = mean(ER, na.rm=T),
-            NEE_sd = sd(NEE, na.rm=T),
-            NEE = mean(NEE, na.rm=T),
-            CH4_sd = sd(CH4, na.rm=T),
-            CH4 = mean(CH4, na.rm=T),
-            date=min(date, na.rm=T),
-            timestamp=mean(timestamp, na.rm=T),
-            Tair=mean(Tair, na.rm=T),
-            TairS=mean(TairS, na.rm=T),
-            T5S=mean(T5S, na.rm=T),
-            T10S=mean(T10S, na.rm=T),
-            T20S=mean(T20S, na.rm=T),
-            T40S=mean(T40S, na.rm=T),
-            T5=mean(T5, na.rm=T),
-            T10=mean(T10, na.rm=T),
-            T20=mean(T20, na.rm=T),
-            T30=mean(T30, na.rm=T),
-            T40=mean(T40, na.rm=T),
-            T50=mean(T50, na.rm=T),
-            T60=mean(T60, na.rm=T),
-            T70=mean(T70, na.rm=T),
-            T80=mean(T80, na.rm=T),
-            T90=mean(T90, na.rm=T),
-            IVcov=mean(IVcov, na.rm=T),
-            A=mean(A, na.rm=T),
-            H=mean(H, na.rm=T),
-            M=mean(M, na.rm=T),
-            WTL=mean(WTL, na.rm=T)
-            )%>%
-  mutate(date = as.POSIXct(date, format="%Y-%m-%d"))
+# Load treated data (generated with getClean_fluxesFC)
+# Campaign averages
+dfgesm <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC_avg.csv")%>%
+  mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
+  mutate(date=as.POSIXct(as.character(date)))
 ```
 
 # CH4 vs environmental variable 
