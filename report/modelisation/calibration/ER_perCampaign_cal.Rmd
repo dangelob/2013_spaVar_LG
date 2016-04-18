@@ -18,6 +18,10 @@ output:
 <h3><a href="../mod_toc.html"> Calibration </a></h3>
 ***
 
+# Objectives
+This files describe the calibration of the ER fluxes. One file is generated:
+- ER_mdlpar.csv (contains models parameters)
+
 # Setup
 
 ## Load packages and set paths
