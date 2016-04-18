@@ -22,7 +22,7 @@ output:
 ## Load packages and set paths
 
 ```{r, message=FALSE}
-# File name : /2013_spavar_LG/report/rel_flux_envir/cor_ch4.Rmd
+# File name : /2013_spavar_LG/report/rel_flux_envir/cor_GPP.Rmd
 rm(list=ls(all=TRUE)) # Clean start
 
 # Homemade packages (see "Howto" page to install them)
@@ -91,9 +91,9 @@ sel <- dfgesm %>%
 pairs(sel, lower.panel = panel_cor, cex.labels = 2)
 ```
 
-## CH4 vs temperature: R2 evolution with depth
+## GPP vs temperature: R2 evolution with depth
 
-Using CH4=a*exp(b*Temperature)
+Using GPP=a*exp(b*Temperature)
 
 ```{r, fig.width=5, fig.height=7}
 t <- dfgesm %>%

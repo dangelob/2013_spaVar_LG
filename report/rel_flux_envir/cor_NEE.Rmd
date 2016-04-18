@@ -1,5 +1,5 @@
 ---
-title: "ER relations with environmental variables"
+title: "NEE relations with environmental variables"
 author: "Benoît D'ANGELO"
 date: "14 avril 2016"
 output:
@@ -22,7 +22,7 @@ output:
 ## Load packages and set paths
 
 ```{r, message=FALSE}
-# File name : /2013_spavar_LG/report/rel_flux_envir/cor_ER.Rmd
+# File name : /2013_spavar_LG/report/rel_flux_envir/cor_NEE.Rmd
 rm(list=ls(all=TRUE)) # Clean start
 
 # Homemade packages (see "Howto" page to install them)
@@ -64,7 +64,7 @@ dfgesm <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVa
   mutate(date=as.POSIXct(as.character(date)))
 ```
 
-# ER vs environmental variable 
+# NEE vs environmental variable 
 
 ## Correlation matrix {.tabset}
 
@@ -73,7 +73,7 @@ dfgesm <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVa
 ```{r, fig.height=8, fig.width=8}
 # dfges dfgesm
 sel <- dfgesm %>%
-  select(ER, A, H, M, IVcov, WTL)
+  select(NEE, A, H, M, IVcov, WTL)
 pairs(sel, lower.panel = panel_cor, cex.labels = 2) # panel_cor function from bdphdtoolbox
 ```
 
@@ -87,32 +87,32 @@ With:
 
 ```{r, fig.height=8, fig.width=8}
 sel <- dfgesm %>%
-  select(ER,Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80)
+  select(NEE,Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80)
 pairs(sel, lower.panel = panel_cor, cex.labels = 2)
 ```
 
-## ER vs temperature: R2 evolution with depth
+## NEE vs temperature: R2 evolution with depth
 
-Using ER=a*exp(b*Temperature)
+Using NEE=a*exp(b*Temperature)
 
 ```{r, fig.width=5, fig.height=7}
 t <- dfgesm %>%
-  select(ER, WTL, A, H, M, IVcov, Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80, T90)
+  select(NEE, WTL, A, H, M, IVcov, Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80, T90)
 
-# plot(t$ER~t$T50)
-# summary(lm(t$ER~t$T40))
-R1 <- summary(lm(log(t$ER)~t$Tair))$r.squared
-R2 <- summary(lm(log(t$ER)~t$T5))$r.squared
-R3 <- summary(lm(log(t$ER)~t$T10))$r.squared
-R4 <- summary(lm(log(t$ER)~t$T20))$r.squared
-R5 <- summary(lm(log(t$ER)~t$T30))$r.squared
-R6 <- summary(lm(log(t$ER)~t$T40))$r.squared
-R7 <- summary(lm(log(t$ER)~t$T50))$r.squared
-R8 <- summary(lm(log(t$ER)~t$T60))$r.squared
-R9 <- summary(lm(log(t$ER)~t$T70))$r.squared
-R10 <- summary(lm(log(t$ER)~t$T80))$r.squared
-R11 <- summary(lm(log(t$ER)~t$T90))$r.squared
-# summary(lm(log(t$ER)~t$T100))$r.squared
+# plot(t$NEE~t$T50)
+# summary(lm(t$NEE~t$T40))
+R1 <- summary(lm(log(t$NEE)~t$Tair))$r.squared
+R2 <- summary(lm(log(t$NEE)~t$T5))$r.squared
+R3 <- summary(lm(log(t$NEE)~t$T10))$r.squared
+R4 <- summary(lm(log(t$NEE)~t$T20))$r.squared
+R5 <- summary(lm(log(t$NEE)~t$T30))$r.squared
+R6 <- summary(lm(log(t$NEE)~t$T40))$r.squared
+R7 <- summary(lm(log(t$NEE)~t$T50))$r.squared
+R8 <- summary(lm(log(t$NEE)~t$T60))$r.squared
+R9 <- summary(lm(log(t$NEE)~t$T70))$r.squared
+R10 <- summary(lm(log(t$NEE)~t$T80))$r.squared
+R11 <- summary(lm(log(t$NEE)~t$T90))$r.squared
+# summary(lm(log(t$NEE)~t$T100))$r.squared
 
 p <- data.frame(prof=c(10, -5, -10, -20, -30, -40, -50, -60, -70, -80, -90),
                 R2=c(R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11))
@@ -127,24 +127,24 @@ ggplot(p, aes(x=R2, y=prof))+
   labs(x=expression(R^2), y="profondeur (en cm)")+
   theme_classic()+
   theme(plot.margin=unit(c(1,1,0,0),"mm"))
-ggsave("ER_T_exp.pdf", path=savpth, width=3.5, height=5)
+ggsave("NEE_T_exp.pdf", path=savpth, width=3.5, height=5)
 ```
 
-## ER vs vegetation and water table level
+## NEE vs vegetation and water table level
 
 
 ```{r}
-lin_A <- round(summary(lm(t$ER~t$A))$r.squared,2)
-lin_H <- round(summary(lm(t$ER~t$H))$r.squared,2)
-lin_M <- round(summary(lm(t$ER~t$M))$r.squared,2)
-lin_IVcov <- round(summary(lm(t$ER~t$IVcov))$r.squared,2)
-lin_WTL <- round(summary(lm(t$ER~t$WTL))$r.squared,2)
+lin_A <- round(summary(lm(t$NEE~t$A))$r.squared,2)
+lin_H <- round(summary(lm(t$NEE~t$H))$r.squared,2)
+lin_M <- round(summary(lm(t$NEE~t$M))$r.squared,2)
+lin_IVcov <- round(summary(lm(t$NEE~t$IVcov))$r.squared,2)
+lin_WTL <- round(summary(lm(t$NEE~t$WTL))$r.squared,2)
 
-exp_A <- round(summary(lm(log(t$ER)~t$A))$r.squared,2)
-exp_H <- round(summary(lm(log(t$ER)~t$H))$r.squared,2)
-exp_M <- round(summary(lm(log(t$ER)~t$M))$r.squared,2)
-exp_IVcov <- round(summary(lm(log(t$ER)~t$IVcov))$r.squared,2)
-exp_WTL <- round(summary(lm(log(t$ER)~t$WTL))$r.squared,2)
+exp_A <- round(summary(lm(log(t$NEE)~t$A))$r.squared,2)
+exp_H <- round(summary(lm(log(t$NEE)~t$H))$r.squared,2)
+exp_M <- round(summary(lm(log(t$NEE)~t$M))$r.squared,2)
+exp_IVcov <- round(summary(lm(log(t$NEE)~t$IVcov))$r.squared,2)
+exp_WTL <- round(summary(lm(log(t$NEE)~t$WTL))$r.squared,2)
 
 linexp <- data.frame(equation=c("lin", "exp"),
                      A=c(lin_A, exp_A),
@@ -153,7 +153,7 @@ linexp <- data.frame(equation=c("lin", "exp"),
                      IVcov=c(lin_IVcov, exp_IVcov),
                      WTL=c(lin_WTL, exp_WTL))
 
-knitr::kable(linexp, caption="ER relation with environmental variable using linear and exponential equations (R2 values)")
+knitr::kable(linexp, caption="NEE relation with environmental variable using linear and exponential equations (R2 values)")
 
 ```
 
