@@ -44,6 +44,7 @@ outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data
 
 # allow wider tables and graphes in html output
 options(width = 100)
+knitr::opts_chunk$set(fig.width=12,fig.height=8)
 
 # Load custom color set
 source("../../../src/report/custom_colors.R")
@@ -69,6 +70,15 @@ mdl <- nls(Y ~ (a*X2 + c) * exp(b*X), data=df, start=list(a=0.3, b=0.1, c=1), na
 mdl_linlinexp <- function(df){
 mdl <- nls(Y ~ (a*X2 + c*X3) * exp(b*X), data=df, start=list(a=0.3, b=0.1, c=1), na.action = na.exclude)
 }
+
+
+pER_T <- function(df, x_lab){
+par(mar=c(5.1,5.1,2.1,2.1))
+plot(Y~X, xlab=x_lab, ylab=expression(paste("RE mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=df)
+# curve(a*exp(b*x), add=T, col="blue")
+}
+
+
 
 mdl_param <- function(df, mdl){
   # R2
@@ -117,6 +127,12 @@ title(ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep=""
 abline(a=0, b=1, col="black", lty=2)
 text(.16,.17, "1:1", srt=45)
 }
+
+presmod <- function(mdl){
+par(mar=c(4,4,.5,.5))
+plot(resid(mdl)~predict(mdl), xlab="valeurs prédites", ylab="résidus")
+}
+
 ```
 
 
@@ -124,54 +140,10 @@ text(.16,.17, "1:1", srt=45)
 
 ```{r ld_data}
 # Load treated data (generated with getClean_fluxesFC)
-# df <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC.csv")%>%
-#   mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
-#   mutate(date=as.POSIXct(as.character(date)))
-
-# Load treated data (generated with getClean_fluxesFC)
+# Campaign average
 dfm <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC_avg.csv")%>%
   mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
   mutate(date=as.POSIXct(as.character(date)))
-  
-# Average data by campaign
-# dfmm <- df %>%
-#   group_by(ID_camp)%>%
-#   summarise(
-#             GPP_sd = sd(GPP, na.rm=T),
-#             GPP = mean(GPP, na.rm=T),
-#             ER_sd = sd(ER, na.rm=T),
-#             ER = mean(ER, na.rm=T),
-#             NEE_sd = sd(NEE, na.rm=T),
-#             NEE = mean(NEE, na.rm=T),
-#             CH4_sd = sd(CH4, na.rm=T),
-#             CH4 = mean(CH4, na.rm=T),
-#             date=min(date, na.rm=T),
-#             timestamp=mean(timestamp, na.rm=T),
-#             Tair=mean(Tair, na.rm=T),
-#             TairS=mean(TairS, na.rm=T),
-#             T5S=mean(T5S, na.rm=T),
-#             T10S=mean(T10S, na.rm=T),
-#             T20S=mean(T20S, na.rm=T),
-#             T40S=mean(T40S, na.rm=T),
-#             T5=mean(T5, na.rm=T),
-#             T10=mean(T10, na.rm=T),
-#             T20=mean(T20, na.rm=T),
-#             T30=mean(T30, na.rm=T),
-#             T40=mean(T40, na.rm=T),
-#             T50=mean(T50, na.rm=T),
-#             T60=mean(T60, na.rm=T),
-#             T70=mean(T70, na.rm=T),
-#             T80=mean(T80, na.rm=T),
-#             T90=mean(T90, na.rm=T),
-#             IVcov=mean(IVcov, na.rm=T),
-#             A=mean(A, na.rm=T),
-#             H=mean(H, na.rm=T),
-#             M=mean(M, na.rm=T),
-#             RH_m=mean(RH_m, na.rm=T),
-#             NPOC=mean(NPOC, na.rm=T),
-#             WTL=mean(WTL, na.rm=T)
-#             )%>%
-#   mutate(date = as.POSIXct(date, format="%Y-%m-%d"))
 ```
 
 # Calculations
@@ -266,160 +238,259 @@ result[,-1] <- round(result[,-1],2) # round sauf 1re col
 result <- cbind(result, not)
 ```
 
+## Models
 
+```{r}
+result
+```
+
+## Models sort by R2a
+
+```{r}
+result %>%
+  select(mdl, R2, R2a, rmse, nrmse, aic, bic, best)%>%
+  arrange(desc(R2a))
+
+result %>%
+  select(mdl, a, b, c, a_se, b_se, c_se, a_pval, b_pval, c_pval)
+```
+
+# Diagnostic plots {.tabset}
+
+## ER~aexp(bTair)
+
+```{r, fig.height=4, eval=T}
+par_1
+
+par(mfrow=c(1,3))
+pER_T(dmdl_1, "température de l'air cm (°C)")
+curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
+pmesmod(dmdl_1, mdl_1)
+presmod(mdl_1)
+par(mfrow=c(1,1))
+```
+```{r, fig.height=7, eval=T}
+par(mfrow=c(2,3))
+plot(resid(mdl_1)~dmdl_1$WTL, main="vs. WTL") 
+plot(resid(mdl_1)~dmdl_1$RH_m, main="vs. RH") 
+plot(resid(mdl_1)~dmdl_1$IVcov, main="vs. IV cov")
+plot(resid(mdl_1)~dmdl_1$A, main="vs. A")
+plot(resid(mdl_1)~dmdl_1$H, main="vs. H")
+plot(resid(mdl_1)~dmdl_1$M, main="vs. M")
+plot(resid(mdl_1)~dmdl_1$NPOC, main="vs. NPOC")
+par(mfrow=c(1,1))
+```
+
+## ER~aexp(bT5)
+
+```{r, fig.height=4}
+par_2
+par(mfrow=c(1,3))
+pER_T(dmdl_1, "température du sol à -5 cm (°C)")
+curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
+pmesmod(dmdl_1, mdl_1)
+presmod(mdl_1)
+par(mfrow=c(1,1))
+```
+```{r, fig.height=3}
+par(mfrow=c(1,4))
+plot(resid(mdl_2)~dmdl_2$WTL, main="vs. WTL") 
+plot(resid(mdl_2)~dmdl_2$RH_m, main="vs. RH") 
+plot(resid(mdl_2)~dmdl_2$IVcov, main="vs. IV cov")
+plot(resid(mdl_2)~dmdl_2$H, main="vs. H")
+par(mfrow=c(1,1))
+```
+
+## ER~(a*IVcov + c) exp(bTair)
+
+```{r, fig.height=4, eval=T}
+par_1_1
+par(mfrow=c(1,3))
+pER_T(dmdl_1_1, "température de l'air cm (°C)")
+# curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
+pmesmod(dmdl_1_1, mdl_1_1)
+presmod(mdl_1_1)
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,3))
+plot(resid(mdl_1_1)~dmdl_1_1$WTL, main="vs. WTL") 
+plot(resid(mdl_1_1)~dmdl_1_1$RH_m, main="vs. RH") 
+plot(resid(mdl_1_1)~dmdl_1_1$H, main="vs. H")
+par(mfrow=c(1,1))
+```
+
+## ER~(a*H + c) exp(bTair)
+
+```{r, fig.height=4, eval=T}
+par_1_2
+par(mfrow=c(1,3))
+pER_T(dmdl_1_2, "température de l'air cm (°C)")
+# curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
+pmesmod(dmdl_1_2, mdl_1_2)
+presmod(mdl_1_2)
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,3))
+plot(resid(mdl_1_2)~dmdl_1_2$WTL, main="vs. WTL") 
+plot(resid(mdl_1_2)~dmdl_1_2$RH_m, main="vs. RH") 
+plot(resid(mdl_1_2)~dmdl_1_2$IVcov, main="vs. IVcov")
+plot(resid(mdl_1_2)~dmdl_1_2$NPOC, main="vs. NPOC")
+par(mfrow=c(1,1))
+```
+
+## ER~(a*IVcov + c) exp(bT5)
+
+```{r, fig.height=4}
+par_2_1
+par(mfrow=c(1,3))
+pER_T(dmdl_2_1, "température du sol à -5 cm (°C)")
+# curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
+pmesmod(dmdl_2_1, mdl_2_1)
+presmod(mdl_2_1)
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,3))
+plot(resid(mdl_2_1)~dmdl_2_1$WTL, main="vs. WTL") 
+plot(resid(mdl_2_1)~dmdl_2_1$RH_m, main="vs. RH") 
+plot(resid(mdl_2_1)~dmdl_2_1$H, main="vs. H")
+par(mfrow=c(1,1))
+```
+
+## ER~(a*RH + c) exp(bT5)
+
+```{r, fig.height=4}
+par_2_3
+par(mfrow=c(1,3))
+pER_T(dmdl_2_3, "température du sol à -5 cm (°C)")
+# curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
+pmesmod(dmdl_2_3, mdl_2_3)
+presmod(mdl_2_3)
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,3))
+plot(resid(mdl_2_3)~dmdl_2_3$WTL, main="vs. WTL") 
+plot(resid(mdl_2_3)~dmdl_2_3$H, main="vs. H") 
+plot(resid(mdl_2_3)~dmdl_2_3$IVcov, main="vs. IVcov")
+par(mfrow=c(1,1))
+```
 
 # Figures
-```{r, fig.height=8, eval=F}
-labpar_1 <- format(par_IVcov_exp,  digits=2, nsmall=2)
+
+```{r, fig.height=8}
+labpar_1 <- format(par_1,  digits=2, nsmall=2)
+labpar_2 <- format(par_2,  digits=2, nsmall=2)
+labpar_1_2 <- format(par_1_2,  digits=2, nsmall=2)
+labpar_2_3 <- format(par_2_3,  digits=2, nsmall=2)
+
 
 lab11 <- paste(
   "y = ", labpar_1$a, " * exp(", labpar_1$b, "*Tair)",
   "\nR² = ", labpar_1$aR2, 
   "\nRMSE = ", labpar_1$rmse, 
   "\nNRMSE = ", labpar_1$nrmse, " %", sep="")
+lab21 <- paste0(
+  "y = ", labpar_2$a, " * exp(", labpar_2$b, "*T5)",
+  "\nR² = ", labpar_2$aR2, 
+  "\nRMSE = ", labpar_2$rmse, 
+  "\nNRMSE = ", labpar_2$nrmse, " %", sep="")
 
 
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ER", "ER_T5_mdl_mesmod.pdf"), width=10, height=4)
+par(mfrow=c(1,2), mar=c(4,4.5,.5,.5))
+# pmesmod( ),
+# par(mar=c(4,4.5,.5,.5))
+plot(Y~predict(mdl_2), ylim=c(0,10), xlim=c(0,10), xlab="", ylab="", data=dmdl_2)
+title(xlab=expression(paste("RE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
+title(ylab=expression(paste("RE mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
+abline(a=0, b=1, col="black", lty=2)
+text(19,20, "1:1", srt=45)
 
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/CH4", "CH4_IVcov_mdl_mesmod.pdf"), width=9, height=8)
-par(mfrow=c(2,2))
+text(x=.1, y=8.6, labels=lab21, adj=0)
+plot(resid(mdl_2)~predict(mdl_2), 
+     xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")),
+     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep=""))) 
+par(mfrow=c(1,1))
+dev.off()
 
-# haut
-pmesmod(dmdl_IVcov, mdl_IVcov_exp)
-text(x=2, y=172, labels=lab11, adj=0)
-text(x=190, y=6, labels="a", adj=0, cex=2)
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ER", "ER_T5_mdl_res.pdf"), width=5, height=4)
+par(mfrow=c(1,1), mar=c(4,4.5,.5,.5))
+# plot(resid(mdl_2)~dmdl_1$WTL, main="vs. WTL") 
+# plot(resid(mdl_2)~dmdl_1$RH, main="vs. RH") 
+plot(resid(mdl_2)~dmdl_1$IVcov, 
+     xlab="indice de végétation",
+     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep=""))) 
+par(mfrow=c(1,1))
+dev.off()
 
-plot(resid(mdl_IVcov_exp)~predict(mdl_IVcov_exp), 
-     xlab="", ylab="", ylim=c(-0.06, 0.06))
-abline(h=0, lty="dashed")
-abline(h=0.04, lty="dotted")
-abline(h=-0.04, lty="dotted")
+## Figure Tair T5
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ER", "ER_mdl.pdf"), width=9, height=8)
+par(mfrow=c(2,2), mar=c(4,4.5,.5,.5))
+
+# Haut 
+pmesmod(dmdl_1, mdl_1)
+text(x=.1, y=8.6, labels=lab11, adj=0)
+text(x=9, y=1, labels="a", adj=0, cex=2)
+
+plot(resid(mdl_1)~predict(mdl_1), 
+     xlab="", ylab="") 
 title(xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
 title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-text(x=170, y=-35, labels="b", adj=0, cex=2)
+text(x=9, y=-1, labels="b", adj=0, cex=2)
 
-## bas gauche
-plot(resid(mdl_IVcov_exp)~dmdl_IVcov$WTL, xlab="", ylab="", ylim=c(-0.06, 0.06)) 
-title(xlab="Niveau de la nappe (cm)", line=2.5)
+# Bas
+pmesmod(dmdl_2, mdl_2)
+text(x=.1, y=8.6, labels=lab21, adj=0)
+text(x=9, y=1, labels="c", adj=0, cex=2)
+
+plot(resid(mdl_2)~predict(mdl_2), 
+     xlab="", ylab="", 
+     xlim=c(1,10)) 
+title(xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
 title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-text(x=11, y=-35, labels="c", adj=0, cex=2)
-## bas droit
-plot(resid(mdl_IVcov_exp)~dmdl_IVcov$T20, xlab="", ylab="", ylim=c(-0.06, 0.06)) 
-title(xlab="Température du sol à -20 cm (°C)", line=2.5)
-title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-text(x=34, y=-35, labels="d", adj=0, cex=2)
+text(x=9, y=-1.6, labels="d", adj=0, cex=2)
 
 par(mfrow=c(1,1))
 dev.off()
 
-
-
-
-## Figure vis flux fact crtl
-plt <- df %>%
-  select(NEE, ER, GPP, CH4, IVcov, WTL, Tair)
-# cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/CH4", "CH4_T5_mdl_res.pdf"), width=5, height=4)
-par(mfrow=c(3,3), mar=c(1.5,4.5,.5,.5))
-# Haut
-plot(GPP~Tair, 
-     data=plt,
-     xlab="",
-     ylab="")
-title(ylab=expression(paste("PPB (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-par(mar=c(1.5,1.6,.5,.5))
-plot(GPP~IVcov, 
-     data=plt,
-     xlab="",
-     ylab="")
-plot(GPP~WTL, 
-     data=plt,
-     xlab="",
-     ylab="")
-# Milieu
-par(mar=c(1.5,4.5,.5,.5))
-plot(ER~Tair, 
-     data=plt,
-     xlab="",
-     ylab="")
-title(ylab=expression(paste("RE (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-par(mar=c(1.5,1.6,.5,.5))
-plot(ER~IVcov, 
-     data=plt,
-     xlab="",
-     ylab="")
-plot(ER~WTL, 
-     data=plt,
-     xlab="",
-     ylab="")
-
-# Bas
-par(mar=c(4,4.5,.5,.5))
-plot(CH4~Tair, 
-     data=plt,
-     xlab="",
-     ylab="")
-title(ylab=expression(paste("CH4 (", nmol,m^-2,s^-1,")", sep="")), line=2)
-title(xlab="Température de l'air (°C)", line=2.5)
-par(mar=c(4,1.6,.5,.5))
-plot(CH4~IVcov, 
-     data=plt,
-     xlab="",
-     ylab="")
-title(xlab="Indice de végétation", line=2.5)
-plot(CH4~WTL, 
-     data=plt,
-     xlab="",
-     ylab="")
-title(xlab="Niveau de la nappe (cm)", line=2.5)
-
-par(mfrow=c(1,1))
+# cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance", "ER_1par_mdl_res.pdf"), width=10, height=8)
+# par(mfrow=c(2,2))
+# pmesmod(dmdl_1, mdl_1)
+# text(x=1, y=8, labels=lab11, adj=0)
+# pmesmod(dmdl_2, mdl_2)
+# text(x=1, y=8, labels=lab21, adj=0)
+# plot(resid(mdl_2)~dmdl_1$RH_m, main="vs. TES") 
+# par(mfrow=c(1,1))
 # dev.off()
-
-# plt <- dfgesm %>%
-#   select(NEE, ER, GPP, CH4, IVcov, WTL, Tair)
-
-plt2 <- df %>%
-  select(NEE, ER, GPP, CH4, IVcov, WTL, Tair)%>%
-  rename(RE=ER, PPB=GPP, IV=IVcov, "Niveau nappe"=WTL)%>%
-  gather("F_type", "F_val", 1:4)%>%
-  gather("FC_type", "FC_val", 1:3)%>%
-  filter(F_type != "NEE")
-
-ggplot(plt2, aes(x = FC_val, y = F_val))+
-  geom_point(size=3, shape=21)+
-  facet_grid(F_type~FC_type, scales="free")+
-  annotate("text", label=c("A","B","C","D","E","F","G","H","I"), x=+Inf, y=+Inf, hjust=2, vjust=2)+
-  labs(x="Facteurs contrôlants", y=expression(paste("Flux (", mu, mol,m^-2,s^-1,")", sep="")))+
-  theme_bw()+
-  theme(panel.grid.major.x = element_blank(),
-        panel.grid.major.y = element_line(size=.05, colour="gray95"),
-        strip.background = element_blank(),
-        panel.grid.minor = element_blank()) 
-ggsave("Fl_FC.pdf", path=savpth, width=7, height=5)
-
-```
-
-```{r, eval=F}
-t <- plt2 %>%
-# filter(FC_type == "Niveau nappe", F_type == "PPB")%>%
-# filter(FC_type == "Niveau nappe", F_type == "RE")%>%
-# filter(FC_type == "Niveau nappe", F_type == "CH4")%>%
-filter(FC_type == "Tair", F_type == "PPB")%>%
-# filter(FC_type == "Tair", F_type == "RE")%>%
-# filter(FC_type == "Tair", F_type == "CH4")%>%
-# filter(FC_type == "IV", F_type == "PPB")%>%
-# filter(FC_type == "IV", F_type == "RE")%>%
-# filter(FC_type == "IV", F_type == "CH4")%>%
-do(na.omit(.))
-
-cor(t$F_val, t$FC_val)
-plot(t$F_val~t$FC_val)
+# 
+# lab11 <- paste(
+#   "y = (", labpar_1_2$a, " * H + ", labpar_1_2$c, ") * exp(", labpar_1_2$b, "*Tair)",
+#   "\nR² = ", labpar_1_2$aR2, 
+#   "\nNRMSE = ", labpar_1_2$nrmse, sep="")
+# lab21 <- paste0(
+#   "y = (", labpar_2_3$a, " * TES + ", labpar_2_3$c, ") * exp(", labpar_2_3$b, "*T5)",
+#   "\nR² = ", labpar_2_3$aR2, 
+#   "\nNRMSE = ", labpar_2_3$nrmse)
+# 
+# cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance", "ER_2par_mdl.pdf"), width=10, height=4)
+# par(mfrow=c(1,2))
+# pmesmod(dmdl_1_2, mdl_1_2)
+# text(x=1, y=8, labels=lab11, adj=0)
+# # plot(resid(mdl_1)~dmdl_1$H, main="vs. H") 
+# pmesmod(dmdl_2_3, mdl_2_3)
+# text(x=1, y=8, labels=lab21, adj=0)
+# # plot(resid(mdl_2)~dmdl_1$RH_m, main="vs. TES") 
+# par(mfrow=c(1,1))
+# dev.off()
 ```
 
 # Data
-```{r sav_mdl_par, eval=F}
+```{r sav_mdl_par}
+select(best, -best)
+
 export <- res %>%
   select(mdl, a, b, c)
 
-write.csv(export, file.path(outpth, "/CH4_mdlpar.csv"), quote=F, row.names=F)
+filepath_mdl <- paste0(outpth, "/ER_mdlpar.csv")
+write.csv(export, filepath_mdl, quote=F, row.names=F)
 ```
-
