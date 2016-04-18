@@ -21,6 +21,9 @@ library(scales)
 
 savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 
+# Load custom color set
+source("../../../src/report/custom_colors.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
 ```
 
 
@@ -40,6 +43,13 @@ dfm <- df %>%
             WTL=mean(WTL, na.rm=T)
             )
 
+# Moyenne annuelle niveau
+dfma <- df %>%
+  group_by(year)%>%
+  summarise(WTL_sd=sd(WTL, na.rm=T),
+            WTL=mean(WTL, na.rm=T))
+
+dfma
 ```
 
 ## Mean WTL
@@ -50,11 +60,27 @@ ggplot(dfm, aes(x=date, y=WTL, group=year))+
   geom_linerange(aes(x=date, ymin=WTL-WTL_sd, ymax=WTL+WTL_sd))+
   labs(y="niveau de la nappe (cm)", x="2013-2014")+
   scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
-  theme_bw()+
-  theme(panel.grid.major.x = element_blank(), # DIAPO
-        panel.grid.major.y = element_line(size=.05, colour="gray95"),
-        panel.grid.minor = element_blank())
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
 ggsave("WTL_mean_evolution.pdf", path=savpth, width=7, height=3)
+
+ggplot(dfm, aes(x=date, y=WTL, group=year))+
+  geom_point(size=3)+
+  geom_linerange(aes(x=date, ymin=WTL-WTL_sd, ymax=WTL+WTL_sd))+
+  annotate("text", x=as.Date("2015-02-01"), y=0, label="N=20", size=4)+
+  #2013
+  annotate("text", x=as.Date("2013-06-15"), y=0, label="2013", size=5)+
+  annotate("text", x=as.Date("2013-12-01"), y=-8.1, label="-9,2", size=5, color=orange)+
+  annotate("segment", x=as.Date("2013-03-05"), xend=as.Date("2013-12-15"), y=-9.2, yend=-9.2, linetype="dashed", size=1, color=orange)+
+  #2014
+  annotate("text", x=as.Date("2014-06-15"), y=0, label="2014", size=5)+
+  annotate("text", x=as.Date("2015-01-01"), y=-6, label="-7,1", size=5, color=orange)+
+  annotate("segment", x=as.Date("2014-03-15"), xend=as.Date("2014-12-20"), y=-7.1, yend=-7.1, linetype="dashed", size=1, color=orange)+
+  labs(y="niveau de la nappe (cm)", x="")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
+ggsave("VS_WTL_avg.pdf", path=savpth, width=7, height=3)
 ```
 
 # WTL for each replicate
@@ -63,11 +89,17 @@ The red line show the mean behavior
 
 ```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9}
 ggplot(df, aes(x=date, y=WTL, group=year))+
-  geom_point()+
-  geom_line()+
-  geom_line(data=dfm, aes(x=date, y=WTL, group=year), color="tomato")+
+  geom_point(size=.8, color=orange)+
+  geom_line(color=orange)+
+  geom_hline(yintercept=-10, linetype="dashed", color=gris)+
+  geom_line(data=dfm, aes(x=date, y=WTL, group=year), color=gris)+
   facet_wrap(~placette)+
   theme_bw()+
-  theme(axis.text.x=element_text(angle=30, hjust=1))
+  theme(axis.text.x=element_text(angle=30, hjust=1),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank()
+        )
+  
 ggsave("WTL_p7_evolution.pdf", path=savpth)
 ```

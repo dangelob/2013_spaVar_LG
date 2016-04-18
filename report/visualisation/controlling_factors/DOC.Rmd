@@ -1,0 +1,72 @@
+---
+title: "Dissolved Organic Carbon (DOC)"
+author: "Benoît D'ANGELO"
+date: "02/09/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+---
+### <a href="../vis_toc.html"> Visualisation </a>
+
+***
+```{r, echo=FALSE, message=FALSE}
+rm(list=ls())
+library(laguettevarspa)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
+
+```
+
+
+```{r load_dat, echo=FALSE}
+# données par placette
+df <- svCtrlFact%>%
+  select(ID_camp, placette, date, NPOC)%>%
+  do(na.omit(.))%>%
+  separate(date, c("year","month", "day"), sep="-",remove = F)
+
+# moyenne de l'ensemble des placettes
+dfm <- df %>%
+  group_by(ID_camp)%>%
+  summarise(date=min(date),
+            year=unique(year),
+            NPOC_sd=sd(NPOC, na.rm=T),
+            NPOC=mean(NPOC, na.rm=T)
+            )
+
+```
+
+## Mean NPOC
+
+```{r, echo=FALSE, warning=FALSE, fig.width=9}
+ggplot(dfm, aes(x=date, y=NPOC, group=year))+
+  geom_point(size=3)+
+  annotate("text", x=as.Date("2015-03-01"), y=50, label="C", size=5)+
+  geom_linerange(aes(x=date, ymin=NPOC-NPOC_sd, ymax=NPOC+NPOC_sd))+
+  labs(y=expression(paste("carbone organique dissout (mg",L^-1,")", sep="")), x="2013-2014")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
+ggsave("NPOC_mean_evolution.pdf", path=savpth, width=7, height=3)
+```
+
+# NPOC for each replicate
+
+The red line show the mean behavior
+
+```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9}
+ggplot(df, aes(x=date, y=NPOC, group=year))+
+  geom_point()+
+  geom_line()+
+  geom_line(data=dfm, aes(x=date, y=NPOC, group=year), color="tomato")+
+  facet_wrap(~placette)+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=30, hjust=1))
+ggsave("NPOC_p7_evolution.pdf", path=savpth)
+```
