@@ -28,7 +28,7 @@ This files describe the calibration of the CH4 fluxes. One file is generated:
 ## Load packages and set paths
 
 ```{r ld_pckg, message=FALSE}
-# File name : /2013_spavar_LG/report/visualisation/flux/methane.Rmd
+# File name : /2013_spavar_LG/report/modelisation/calibration/ch4_perCampaign_cal.Rmd
 rm(list=ls(all=TRUE)) # Clean start
 
 # Homemade packages (see "Howto" page to install them)
