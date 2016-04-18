@@ -22,29 +22,37 @@ output:
 ## Load packages and functions
 
 ```{r setup, message=FALSE, warning=FALSE}
-rm(list=ls(all=TRUE))
-library(laguettevarspa) # Données "variabilité spatiale"
+# File name : /2013_spavar_LG/report/visualisation/flux/ER.Rmd
+rm(list=ls(all=TRUE)) # Clean start
 
+# Homemade package
+library(laguettevarspa) # "spatial variability" data
+library(bdphdtoolbox)
+# See "Howto"" page to install it
+
+# CRAN package
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(scales)
 
+# Figure save path
 savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 
-# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/vis_plot.R")
+# Home made functions
 source("../../../src/report/vis_plot.R")
-# fonctions : flplt, p7_fl_plt, ann_month_mean_fl, month_mean_fl
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/vis_plot.R")
+# functions: flplt, p7_fl_plt, ann_month_mean_fl, month_mean_fl
 
-
-# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
+# Load custom color set
 source("../../../src/report/custom_colors.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
 ```
 
 ## Load and transform data
 
 ```{r load_data, echo=TRUE}
-# Load data from package
+# Load data from package (laguettevarspa)
 df <- svNetFlux %>%
   filter(type == "ER")%>%
   separate(date, c("year","month", "day"),remove = F) %>%
@@ -157,9 +165,7 @@ p7_fl_plt(df, lab_Y)+ # plot function location: /src/report/vis_plot
   scale_colour_manual(values=c("red","black"))
 ggsave("ER_p7_evolution.pdf", path=savpth)
 ```
-
-
-
+  
 # Autre
 
 ## Annual mean differences significance:
@@ -173,9 +179,6 @@ t.test(A$netCO2F, B$netCO2F)
 ## Normality test:
 
 The normality tests are available [here](flux_norm_test.html)
-
-
-
 
 ## Montly ER means per year
 
