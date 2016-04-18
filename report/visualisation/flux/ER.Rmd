@@ -76,8 +76,6 @@ mpdf <- df %>%
 lab_Y <- expression(paste("Re (", mu, mol,m^-2,s^-1,")", sep=""))
 ```
 
-
-
 # Annual ER variation 
 
 ## Annual ER average
