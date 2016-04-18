@@ -1,6 +1,7 @@
 # Setup -------------------------------------------------------------------
 rm(list=ls(all=TRUE)) # Clean start
 library(laguettevarspa)
+library(snoweather)
 library(dplyr)
 library(tidyr)
 
@@ -9,7 +10,7 @@ outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/dat
 
 ## Flux CO2
 dfco2 <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_CO2.csv") %>%
-  spread(F_type, flux)
+  spread(F_type, flux)%>%
   select(ID_camp, date, placette, ER, GPP, NEE)
   
 ## Flux CH4
@@ -23,7 +24,7 @@ dfctrl <- svCtrlFact %>%
   select(ID_camp, placette, WTL, RH_m, NPOC, PAR_Deb, PAR_Fin)%>%
   gather(type, val, 6:7)%>% # PAR mean calculation
   group_by(ID_camp, placette)%>%
-  summarise(WTL=mean(WTL, na.rm=T), PAR=mean(val, na.rm=T), RH_m=mean(RH_m, na.rm=T))%>%
+  summarise(WTL=mean(WTL, na.rm=T), PAR=mean(val, na.rm=T), RH_m=mean(RH_m, na.rm=T), NPOC=mean(NPOC, na.rm=T))%>%
   ungroup()
 
 # Retrieve temperature data
