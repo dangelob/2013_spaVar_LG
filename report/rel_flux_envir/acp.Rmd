@@ -1,0 +1,339 @@
+---
+title: "ACP"
+author: "Benoît D'ANGELO"
+date: "28/09/2015"
+output:
+  html_document:
+    includes:
+      in_header: ../in_header.html
+    theme: flatly
+---
+
+
+# Introduction
+
+The aim of this document is to explore the relationship between GPP (Gross Primary Production) and the temperatures measured at differents depth.
+For each plot and each temperature, models (linear, exponential and arrhenius), have been calculated.
+
+```{r load_env, eval=TRUE, echo=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+library(laguettevarspa)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/relflT_plot.R")
+
+# Path to the project
+proj_pth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG"
+# Path to graph output
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/relation_flux_T"
+
+# Allow plot a larger document
+options(width = 400)
+set_alias(w = "fig.width", h = "fig.height") 
+opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+```{r load_data, echo=FALSE, message=FALSE}
+#Récupération CO2
+
+df_ER <- svNetFlux %>%
+  filter(type == "ER")%>%
+  select(ID_camp, placette, netCO2F, timestamp)%>%
+  rename(ER=netCO2F, ER_ts=timestamp)%>%
+  mutate(ER_ts=as.POSIXct(ER_ts))
+
+df_NEE <- svNetFlux %>%
+  filter(type == "NEE") %>%
+  select(ID_camp, placette, netCO2F, timestamp)%>%
+  rename(NEE=netCO2F, NEE_ts=timestamp)%>%
+  mutate(NEE_ts=as.POSIXct(NEE_ts))
+
+dfges <- inner_join(df_ER, df_NEE)%>%
+  mutate(GPP=NEE+ER) %>%
+  group_by(ID_camp, placette)%>%
+  mutate(timestamp=mean.POSIXct(c(ER_ts, NEE_ts)))%>%
+  ungroup()%>%
+  select(ID_camp, placette, GPP, ER, NEE)
+
+```
+
+```{r}
+# Récuperation methane
+df <- svCH4
+# umol m-2 s-1
+
+df$date <- as.Date(df$date, format="%Y-%m-%d")
+
+all <- filter(df, 
+              CH4 < 1, 
+              plot != "ETREPEE")
+
+lookup <- c("1" = "p01", "2" = "p02", "3" = "p03", "4" = "p04", "5" = "p05", "6" = "p06", "5'"="A", "5\""="B", "ETREPEE"="C")
+
+#########################################################
+# df avec données recouvrant la VS
+vsch4 <- all %>%
+  select(ID_camp_co2, date, time, plot, CH4)%>%
+  filter(ID_camp_co2 != "none")%>% # retrait campagne méthane sans CO2
+  filter(plot %in% c(1,2,3,4,5,6))%>% # retrait embases autre que VS
+  mutate(plot = as.numeric(as.character(plot)))%>%
+  mutate(placette = lookup[plot])%>%
+  select(-plot)%>%
+  mutate(time = as.character(time))%>%
+  mutate(time = ifelse(is.na(time), "12:00:00", time))%>%
+  mutate(ts_ch4 = paste(as.character(date), as.character(time)))%>%
+  mutate(ts_ch4 = as.POSIXct(ts_ch4, format="%Y-%m-%d %H:%M:%S"))%>%
+  rename(ID_camp = ID_camp_co2)%>%
+  mutate(ID_camp = as.numeric(as.character(ID_camp)))%>%
+  group_by(ID_camp, placette)%>%
+  summarise(timestamp=min(ts_ch4, na.rm=T), CH4=mean(CH4, na.rm=T))%>%
+  mutate(timestamp=as.POSIXct(round(timestamp, "hours")))
+```
+
+
+
+```{r}
+# Récupération facteurs contrôlant
+# Récupération du niveau de la nappe
+dfctrl <- svCtrlFact%>%
+  select(ID_camp, placette, PAR_Deb, PAR_Fin, WTL, RH_m, Cond, pH, NPOC)%>%
+  mutate(PAR = rowMeans(.[,3:4], na.rm=T))%>%
+  select(-PAR_Deb, -PAR_Fin)
+
+# Récupération du niveau des température
+dfT <- svTemperature%>%
+  select(ID_camp, placette, Tair, T5, T10, T20, T30, T40, T50, T60, T70, T80, T90, T100)%>%
+  mutate(placette = as.character(placette))
+
+# Récupération de la végétation
+dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/svIVcov.csv") %>%
+  select(ID_camp, placette, IVcov, A, H, M)%>%
+  mutate(placette = as.character(placette))
+
+# Fusion de toutes les données
+df <- dfges %>%
+  left_join(., dfctrl)%>%
+  left_join(., dfT)%>%
+  left_join(., dfveg)%>%
+  left_join(., vsch4)#%>%
+  # left_join(., cT, by=c("timestamp"))#%>%
+  # filter(!is.na(CH4))#
+
+# Moyenne par placette
+dfm <- df %>%
+  group_by(ID_camp)%>%
+  summarise(
+            GPP = mean(GPP, na.rm=T),
+            ER = mean(ER, na.rm=T),
+            NEE = mean(NEE, na.rm=T),
+            CH4 = mean(CH4, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            T5=mean(T5, na.rm=T),
+            T10=mean(T10, na.rm=T),
+            T20=mean(T20, na.rm=T),
+            T30=mean(T30, na.rm=T),
+            T40=mean(T40, na.rm=T),
+            T50=mean(T50, na.rm=T),
+            T60=mean(T60, na.rm=T),
+            T70=mean(T70, na.rm=T),
+            T80=mean(T80, na.rm=T),
+            T90=mean(T90, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T),
+            A=mean(A, na.rm=T),
+            H=mean(H, na.rm=T),
+            M=mean(M, na.rm=T),
+            WTL=mean(WTL, na.rm=T),
+            RH_m=mean(RH_m, na.rm=T),
+            Cond=mean(Cond, na.rm=T),
+            pH=mean(pH, na.rm=T),
+            NPOC=mean(NPOC, na.rm=T),
+            PAR=mean(PAR, na.rm=T)
+            )
+
+# Moyenne par placette par annee
+lk <- c("1"="2013" , "2"="2013", "3"="2013", "4"="2013", "5"="2013", "6"="2013", "7"="2013", "8"="2013", "9"="2013", "10"="2014", "11"="2014", "12"="2014", "13"="2014", "14"="2014", "15"="2014", "16"="2014", "17"="2014", "18"="2014", "19"="2014", "20"="2015")
+
+dfmp7 <- df %>%
+  mutate(annee=unname(lk[ID_camp]))%>%
+  group_by(annee, placette)%>%
+  summarise(
+            GPP = mean(GPP, na.rm=T),
+            ER = mean(ER, na.rm=T),
+            NEE = mean(NEE, na.rm=T),
+            CH4 = mean(CH4, na.rm=T),
+            Tair=mean(Tair, na.rm=T),
+            T5=mean(T5, na.rm=T),
+            T10=mean(T10, na.rm=T),
+            T20=mean(T20, na.rm=T),
+            T30=mean(T30, na.rm=T),
+            T40=mean(T40, na.rm=T),
+            T50=mean(T50, na.rm=T),
+            T60=mean(T60, na.rm=T),
+            T70=mean(T70, na.rm=T),
+            T80=mean(T80, na.rm=T),
+            T90=mean(T90, na.rm=T),
+            IVcov=mean(IVcov, na.rm=T),
+            A=mean(A, na.rm=T),
+            H=mean(H, na.rm=T),
+            M=mean(M, na.rm=T),
+            WTL=mean(WTL, na.rm=T),
+            RH_m=mean(RH_m, na.rm=T),
+            Cond=mean(Cond, na.rm=T),
+            pH=mean(pH, na.rm=T),
+            NPOC=mean(NPOC, na.rm=T),
+            PAR=mean(PAR, na.rm=T)
+            )
+d2013 <- filter(dfmp7, annee=="2013")%>%
+  select(placette, ER, NPOC)
+write.csv(d2013, "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ERNPOC_2013.csv", quote=F, row.names=F)
+tt <- lm(d2013$ER~d2013$NPOC)
+plot(d2013$ER~d2013$NPOC, type="n")
+text(d2013$NPOC, d2013$ER, label=d2013$placette)
+abline(tt, col="blue")
+text(x=8, y=5.5, "R2=0.03, p=0.2")
+
+d2014 <- filter(dfmp7, annee=="2014")%>%
+  select(placette, ER, NPOC)
+write.csv(d2014, "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ERNPOC_2014.csv", quote=F, row.names=F)
+tt <- lm(d2014$ER~d2014$NPOC)
+summary(tt)
+plot(d2014$ER~d2014$NPOC, type="n")
+text(d2014$NPOC, d2014$ER, label=d2014$placette)
+abline(tt, col="blue")
+text(x=8, y=5, "R2=0.26, p=0.011")
+```
+
+```{r}
+llgris <- rgb(224,224,224,255, maxColorValue = 255)
+lgris <- rgb(140,140,140,255, maxColorValue = 255)
+gris <- rgb(77,77,77,255, maxColorValue = 255)
+dgris <- rgb(0,0,0,255, maxColorValue = 255)
+lorange <- rgb(251,178,88,255, maxColorValue = 255)
+orange <- rgb(250,164,58,255, maxColorValue = 255)
+dorange <- rgb(223,92,36,255, maxColorValue = 255)
+lbleu <- rgb(136,189,230,255, maxColorValue = 255)
+bleu <- rgb(93,165,218,255, maxColorValue = 255)
+dbleu <- rgb(38,93,171,255, maxColorValue = 255)
+lvert <- rgb(144,205,151,255, maxColorValue = 255)
+vert <- rgb(96,189,104,255, maxColorValue = 255)
+dvert <- rgb(5,151,72,255, maxColorValue = 255)
+lviolet <- rgb(188,153,199,255, maxColorValue = 255)
+violet <- rgb(178,118,178,255, maxColorValue = 255)
+dviolet <- rgb(123,58,150,255, maxColorValue = 255)
+drouge <- rgb(203,32,39,255, maxColorValue = 255)
+
+```
+
+## Données sans CH4
+
+```{r}
+df1 <- dfm %>%
+  select(-CH4, -T50, -T60, -T70, -T80, -T90)%>%
+  # select(-ID_camp, -placette, -timestamp)%>%
+  # select(-ID_camp, -placette, -GPP, -NEE, -timestamp, -CH4)%>%
+  do(na.omit(.))
+
+rownames(df1) <- df1$ID_camp
+
+df1$ID_camp <- NULL
+
+colnames(df1) <- c("PPB", "RE", "ENE", "Tair", "T5", "T10", "T20", "T30", "T40", "IV", "RSA", "RSH", "RSM", "Niveau de Nappe", "TES", "Conductivité", "pH", "COD", "PAR")
+
+library(FactoMineR)
+res_pca <- PCA(df1)
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/acp/", "acp_co2_var_12.pdf"), width=7, height=7)
+plot(res_pca, choix = "var", title = "")
+dev.off()
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/acp/", "acp_co2_var_23.pdf"), width=7, height=7)
+plot(res_pca, choix = "var", axes = c(2, 3), title = "")
+dev.off()
+
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/acp/", "acp_co2_hist.pdf"), width=7, height=3)
+barplot(res_pca$eig[,2], names=1:nrow(res_pca$eig), 
+        main="Variances",
+        xlab = "Composantes principales",
+        ylab = "Pourcentage des variances",
+        col = c(orange, rep(lgris,(nrow(res_pca$eig)-1))),
+        border = NA)
+dev.off()
+
+
+round(res_pca$eig[1:4,],2)
+
+dimdesc(res_pca)
+```
+
+## Données avec CH4
+
+```{r}
+# http://stackoverflow.com/questions/22381560/how-to-create-a-biplot-with-factominer
+
+# PCbiplot2 <- function(res.pca, x="Dim.1", y="Dim.2") {
+#   if(!require(ggplot2)) install.packages("ggplot2")
+#   # res.pca being a PCA object
+#   data <- data.frame(obsnames=row.names(res.pca$ind$coord), res.pca$ind$coord)
+#   plot <- ggplot(data, aes_string(x=x, y=y)) + geom_text(alpha=.4, size=3,     aes(label=obsnames))
+#   plot <- plot + geom_hline(aes(0), size=.2) + geom_vline(aes(0), size=.2)
+#   datapc <- data.frame(varnames=rownames(res.pca$var$coord), res.pca$var$coord)
+#   mult <- min(
+#     (max(data[,y]) - min(data[,y])/(max(datapc[,y])-min(datapc[,y]))),
+#     (max(data[,x]) - min(data[,x])/(max(datapc[,x])-min(datapc[,x])))
+#   )
+#   datapc <- transform(datapc,
+#                       v1 = .7 * mult * (get(x)),
+#                       v2 = .7 * mult * (get(y))
+#   )
+#   plot <- plot + coord_equal() + geom_text(data=datapc, aes(x=v1, y=v2,     label=varnames), size = 5, vjust=1, color="red")
+#   plot <- plot + geom_segment(data=datapc, aes(x=0, y=0, xend=v1, yend=v2),     arrow=arrow(length=unit(0.2,"cm")), alpha=0.75, color="red")
+#   plot
+# }
+```
+
+
+```{r}
+# AVEC CH4
+df1 <- dfm %>%
+  select(-T50, -T60, -T70, -T80, -T90)%>%
+  # select(-ID_camp, -placette, -timestamp)%>%
+  # select(-ID_camp, -placette, -GPP, -NEE, -timestamp, -CH4)%>%
+  do(na.omit(.))
+
+rownames(df1) <- df1$ID_camp
+df1$ID_camp <- NULL
+
+colnames(df1) <- c("PPB", "RE", "ENE", "CH4" ,"Tair", "T5", "T10", "T20", "T30", "T40", "IV", "RSA", "RSH", "RSM", "Niveau de Nappe", "TES", "Conductivité", "pH", "COD", "PAR")
+
+
+library(FactoMineR)
+res_pca <- PCA(df1)
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/acp/", "acp_ch4_var_12.pdf"), width=7, height=7)
+plot(res_pca, choix = "var", title = "")
+dev.off()
+
+# plot(res_pca, choix = c("ind", "var"))
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/acp/", "acp_ch4_var_23.pdf"), width=7, height=7)
+plot(res_pca, choix = "var", axes = c(2, 3), title = "")
+dev.off()
+
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/acp/", "acp_ch4_hist.pdf"), width=7, height=3)
+barplot(res_pca$eig[,2], names=1:nrow(res_pca$eig), 
+        main="Variances",
+        xlab = "Composantes principales",
+        ylab = "Pourcentage des variances",
+        col = c(orange, rep(lgris,(nrow(res_pca$eig)-1))),
+        border = NA)
+dev.off()
+
+round(res_pca$eig[1:4,],2)
+
+dimdesc(res_pca)
+```
