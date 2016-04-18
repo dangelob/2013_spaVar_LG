@@ -1,3 +1,12 @@
+# Obj ---------------------------------------------------------------------
+# This script gather and treat vegetation data.
+# These are elaborate data that have been treated : 
+# The vegetation data are treated by : [details TODO]
+
+# Output : 
+# This script output 1 files :
+# - cdIVcov.csv 
+
 library(laguettevarspa)
 library(tidyr)
 library(dplyr)

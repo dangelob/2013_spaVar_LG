@@ -1,3 +1,13 @@
+# Obj ---------------------------------------------------------------------
+# This script gather and treat CARBIODIV vegetation data.
+# These are elaborate data that have been treated : 
+# The vegetation data are treated by : [details TODO]
+
+# Output : 
+# This script output 1 files :
+# - cdIVcov.csv 
+
+
 library(carbiodiv)
 library(tidyr)
 library(dplyr)
