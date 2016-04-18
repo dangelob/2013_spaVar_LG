@@ -1,0 +1,425 @@
+---
+title: "ER calibration (avg/campaign)"
+author: "Benoît D'ANGELO"
+date: "14 avril 2016"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 3
+    fig_width: 7
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+---
+
+<h3><a href="../mod_toc.html"> Calibration </a></h3>
+***
+
+# Setup
+
+## Load packages and set paths
+
+```{r ld_pckg, message=FALSE}
+# File name : /2013_spavar_LG/report/modelisation/calibration/ER_perCampaign.Rmd
+rm(list=ls(all=TRUE)) # Clean start
+
+# Homemade packages (see "Howto" page to install them)
+library(bdphdtoolbox)     # personnal toolbox
+
+# CRAN packages
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(scales)
+
+# Folder to save graphes
+# savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
+
+# Folder to save data treatement
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+# allow wider tables and graphes in html output
+options(width = 100)
+
+# Load custom color set
+source("../../../src/report/custom_colors.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
+```
+
+## Load functions
+
+```{r ld_fn}
+mdl_exp <- function(df, strt=list(a=0.1, b=0.3)){
+mdl <- nls(Y ~ a * exp(b*X), data=df, start=strt, na.action = na.exclude)
+}
+mdl_lin <- function(df){
+mdl <- nls(Y ~ a + b*X, data=df, start=list(a=0.1, b=0.3), na.action = na.exclude)
+}
+mdl_pwr <- function(df){
+mdl <- nls(Y ~ a * X^b, data=df, start=list(a=0.1, b=0.3), na.action = na.exclude)
+}
+mdl_linexp <- function(df){
+mdl <- nls(Y ~ (a*X2 + c) * exp(b*X), data=df, start=list(a=0.3, b=0.1, c=1), na.action = na.exclude)
+}
+
+mdl_linlinexp <- function(df){
+mdl <- nls(Y ~ (a*X2 + c*X3) * exp(b*X), data=df, start=list(a=0.3, b=0.1, c=1), na.action = na.exclude)
+}
+
+mdl_param <- function(df, mdl){
+  # R2
+  devmean <- df$Y-(mean(df$Y)) # deviation à la moyenne
+  SSres <-sum((resid(mdl))^2) # Total sum of squares
+  SStot <- sum(devmean^2) # Residual sum of squares
+  # 2 way to calculate
+  # R2 <- (SStot-SSres)/SStot 
+  R2 <- 1 - SSres/SStot
+  # Adjusted R2
+  N <- NROW(devmean) # sample size
+  p <- 1 # number of predictors
+  R2a <- 1-((1-R2)*(N-1))/(N-p-1)
+  # RMSE
+  rmse_mdl <- sqrt(mean(((predict(mdl))-df$Y)^2,na.rm=TRUE))
+  nrmse_mdl <- 100*rmse_mdl/mean(df$Y)
+  # Collect usefull param
+  df <- data.frame(a=coef(mdl)[1],
+                   b=coef(mdl)[2],
+                   c=coef(mdl)[3],
+                   a_se=coef(summary(mdl))[,"Std. Error"][1],
+                   b_se=coef(summary(mdl))[,"Std. Error"][2],
+                   c_se=coef(summary(mdl))[,"Std. Error"][3],
+                   a_pval=coef(summary(mdl))[,"Pr(>|t|)"][1],
+                   b_pval=coef(summary(mdl))[,"Pr(>|t|)"][2],
+                   c_pval=coef(summary(mdl))[,"Pr(>|t|)"][3],
+                   R2=R2,
+                   aR2=R2a,
+                   rmse=rmse_mdl,
+                   nrmse=nrmse_mdl,
+                   aic=AIC(mdl),
+                   bic=BIC(mdl))
+  return(df)
+}
+
+pmesmod <- function(df, mdl){
+par(mar=c(4,4.5,.5,.5))
+plot(Y~predict(mdl), 
+     # ylim=c(0,200),xlim=c(0,200),
+     xlab="", ylab="", data=df)
+     # xlab=expression(paste("CH"[4]," modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
+     
+     # ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=df)
+title(xlab=expression(paste("CH"[4]," modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
+title(ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
+abline(a=0, b=1, col="black", lty=2)
+text(.16,.17, "1:1", srt=45)
+}
+```
+
+
+## Load and transform data
+
+```{r ld_data}
+# Load treated data (generated with getClean_fluxesFC)
+# df <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC.csv")%>%
+#   mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
+#   mutate(date=as.POSIXct(as.character(date)))
+
+# Load treated data (generated with getClean_fluxesFC)
+dfm <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC_avg.csv")%>%
+  mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
+  mutate(date=as.POSIXct(as.character(date)))
+  
+# Average data by campaign
+# dfmm <- df %>%
+#   group_by(ID_camp)%>%
+#   summarise(
+#             GPP_sd = sd(GPP, na.rm=T),
+#             GPP = mean(GPP, na.rm=T),
+#             ER_sd = sd(ER, na.rm=T),
+#             ER = mean(ER, na.rm=T),
+#             NEE_sd = sd(NEE, na.rm=T),
+#             NEE = mean(NEE, na.rm=T),
+#             CH4_sd = sd(CH4, na.rm=T),
+#             CH4 = mean(CH4, na.rm=T),
+#             date=min(date, na.rm=T),
+#             timestamp=mean(timestamp, na.rm=T),
+#             Tair=mean(Tair, na.rm=T),
+#             TairS=mean(TairS, na.rm=T),
+#             T5S=mean(T5S, na.rm=T),
+#             T10S=mean(T10S, na.rm=T),
+#             T20S=mean(T20S, na.rm=T),
+#             T40S=mean(T40S, na.rm=T),
+#             T5=mean(T5, na.rm=T),
+#             T10=mean(T10, na.rm=T),
+#             T20=mean(T20, na.rm=T),
+#             T30=mean(T30, na.rm=T),
+#             T40=mean(T40, na.rm=T),
+#             T50=mean(T50, na.rm=T),
+#             T60=mean(T60, na.rm=T),
+#             T70=mean(T70, na.rm=T),
+#             T80=mean(T80, na.rm=T),
+#             T90=mean(T90, na.rm=T),
+#             IVcov=mean(IVcov, na.rm=T),
+#             A=mean(A, na.rm=T),
+#             H=mean(H, na.rm=T),
+#             M=mean(M, na.rm=T),
+#             RH_m=mean(RH_m, na.rm=T),
+#             NPOC=mean(NPOC, na.rm=T),
+#             WTL=mean(WTL, na.rm=T)
+#             )%>%
+#   mutate(date = as.POSIXct(date, format="%Y-%m-%d"))
+```
+
+# Calculations
+```{r mdl_calc}
+# Tair mdl exp
+dmdl_1 <- dfm %>%
+  rename(Y=ER, X=Tair)%>%
+  select(Y, X, WTL, RH_m, IVcov, A, H, M, NPOC)
+mdl_1 <- mdl_exp(dmdl_1)
+par_1 <- mdl_param(dmdl_1, mdl_1)
+# Tair mdl pwr
+dmdl_1b <- dfm %>%
+  rename(Y=ER, X=Tair)%>%
+  select(Y, X, WTL, RH_m, IVcov, H, NPOC)
+mdl_1b <- mdl_pwr(dmdl_1b)
+par_1b <- mdl_param(dmdl_1b, mdl_1b)
+# T5 mdl exp
+dmdl_2 <- dfm %>%
+  rename(Y=ER, X=T5)%>%
+  select(Y, X, WTL, RH_m, IVcov, H, NPOC)
+mdl_2 <- mdl_exp(dmdl_2)
+par_2 <- mdl_param(dmdl_2, mdl_2)
+# Tair + IVcov mdl exp
+dmdl_1_1 <- dfm %>%
+  rename(Y=ER, X=Tair, X2=IVcov)%>%
+  select(Y, X, X2, WTL, RH_m, H)
+mdl_1_1 <- mdl_linexp(dmdl_1_1)
+par_1_1 <- mdl_param(dmdl_1_1, mdl_1_1)
+# Tair + H mdl exp
+dmdl_1_2 <- dfm %>%
+  rename(Y=ER, X=Tair, X2=H)%>%
+  select(Y, X, X2, WTL, RH_m, IVcov, NPOC)
+mdl_1_2 <- mdl_linexp(dmdl_1_2)
+par_1_2 <- mdl_param(dmdl_1_2, mdl_1_2)
+# Tair + RH mdl exp
+dmdl_1_3 <- dfm %>%
+  rename(Y=ER, X=Tair, X2=RH_m)%>%
+  select(Y, X, X2, WTL, H, IVcov, NPOC)
+mdl_1_3 <- mdl_linexp(dmdl_1_3)
+par_1_3 <- mdl_param(dmdl_1_3, mdl_1_3)
+# T5 + IVcov mdl exp
+dmdl_2_1 <- dfm %>%
+  rename(Y=ER, X=T5, X2=IVcov)%>%
+  select(Y, X, X2, WTL, RH_m, H, NPOC)
+mdl_2_1 <- mdl_linexp(dmdl_2_1)
+par_2_1 <- mdl_param(dmdl_2_1, mdl_2_1)
+# T5 + H mdl exp
+dmdl_2_2 <- dfm %>%
+  rename(Y=ER, X=T5, X2=H)%>%
+  select(Y, X, X2, WTL, RH_m, IVcov, NPOC)
+mdl_2_2 <- mdl_linexp(dmdl_2_2)
+par_2_2 <- mdl_param(dmdl_2_2, mdl_2_2)
+# T5 + RH mdl exp
+dmdl_2_3 <- dfm %>%
+  rename(Y=ER, X=T5, X2=RH_m)%>%
+  select(Y, X, X2, WTL, H, IVcov, NPOC)
+mdl_2_3 <- mdl_linexp(dmdl_2_3)
+par_2_3 <- mdl_param(dmdl_2_3, mdl_2_3)
+# T5 + IVcov + RH_m
+dmdl_2_1_1 <- dfm %>%
+  rename(Y=ER, X=T5, X2=IVcov, X3=RH_m)%>%
+  select(Y, X, X2, X3, WTL, H, NPOC)
+mdl_2_1_1 <- mdl_linlinexp(dmdl_2_1_1)
+par_2_1_1 <- mdl_param(dmdl_2_1_1, mdl_2_1_1)
+# T5 + H + RH_m
+dmdl_2_2_1 <- dfm %>%
+  rename(Y=ER, X=T5, X2=H, X3=RH_m)%>%
+  select(Y, X, X2, X3, WTL, IVcov, NPOC)
+mdl_2_2_1 <- mdl_linlinexp(dmdl_2_2_1)
+par_2_2_1 <- mdl_param(dmdl_2_2_1, mdl_2_2_1)
+```
+
+```{r mdl_output}
+# Resume
+
+mdlls <- c("Tair", "Tair_pwr", "T5", "Tair_IVcov", "Tair_H","Tair_RH", "T5_IVcov", "T5_H", "T5_RH","T5_IVcov_RH", "T5_H_RH")
+
+par <- c(par_1, par_1b, par_2, par_1_1, par_1_2, par_1_3, par_2_1, par_2_2, par_2_3, par_2_1_1, par_2_2_1)
+mdlpar <- data.frame(matrix(unlist(par), nrow=length(mdlls), byrow=T))
+colnames(mdlpar) <- c("a", "b", "c", "a_se", "b_se", "c_se", "a_pval", "b_pval", "c_pval", "R2", "R2a", "rmse", "nrmse", "aic", "bic")
+
+res <- data.frame(mdl=mdlls)
+res <- cbind(res, mdlpar)
+
+not <- data.frame(best = c("<-","","","<-","<-","","","","<-","","" ))
+
+best <- cbind(res, not)%>%
+  filter(best == "<-")
+
+result <- res
+result[,-1] <- round(result[,-1],2) # round sauf 1re col
+result <- cbind(result, not)
+```
+
+
+
+# Figures
+```{r, fig.height=8, eval=F}
+labpar_1 <- format(par_IVcov_exp,  digits=2, nsmall=2)
+
+lab11 <- paste(
+  "y = ", labpar_1$a, " * exp(", labpar_1$b, "*Tair)",
+  "\nR² = ", labpar_1$aR2, 
+  "\nRMSE = ", labpar_1$rmse, 
+  "\nNRMSE = ", labpar_1$nrmse, " %", sep="")
+
+
+
+cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/CH4", "CH4_IVcov_mdl_mesmod.pdf"), width=9, height=8)
+par(mfrow=c(2,2))
+
+# haut
+pmesmod(dmdl_IVcov, mdl_IVcov_exp)
+text(x=2, y=172, labels=lab11, adj=0)
+text(x=190, y=6, labels="a", adj=0, cex=2)
+
+plot(resid(mdl_IVcov_exp)~predict(mdl_IVcov_exp), 
+     xlab="", ylab="", ylim=c(-0.06, 0.06))
+abline(h=0, lty="dashed")
+abline(h=0.04, lty="dotted")
+abline(h=-0.04, lty="dotted")
+title(xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
+title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
+text(x=170, y=-35, labels="b", adj=0, cex=2)
+
+## bas gauche
+plot(resid(mdl_IVcov_exp)~dmdl_IVcov$WTL, xlab="", ylab="", ylim=c(-0.06, 0.06)) 
+title(xlab="Niveau de la nappe (cm)", line=2.5)
+title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
+text(x=11, y=-35, labels="c", adj=0, cex=2)
+## bas droit
+plot(resid(mdl_IVcov_exp)~dmdl_IVcov$T20, xlab="", ylab="", ylim=c(-0.06, 0.06)) 
+title(xlab="Température du sol à -20 cm (°C)", line=2.5)
+title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
+text(x=34, y=-35, labels="d", adj=0, cex=2)
+
+par(mfrow=c(1,1))
+dev.off()
+
+
+
+
+## Figure vis flux fact crtl
+plt <- df %>%
+  select(NEE, ER, GPP, CH4, IVcov, WTL, Tair)
+# cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/CH4", "CH4_T5_mdl_res.pdf"), width=5, height=4)
+par(mfrow=c(3,3), mar=c(1.5,4.5,.5,.5))
+# Haut
+plot(GPP~Tair, 
+     data=plt,
+     xlab="",
+     ylab="")
+title(ylab=expression(paste("PPB (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
+par(mar=c(1.5,1.6,.5,.5))
+plot(GPP~IVcov, 
+     data=plt,
+     xlab="",
+     ylab="")
+plot(GPP~WTL, 
+     data=plt,
+     xlab="",
+     ylab="")
+# Milieu
+par(mar=c(1.5,4.5,.5,.5))
+plot(ER~Tair, 
+     data=plt,
+     xlab="",
+     ylab="")
+title(ylab=expression(paste("RE (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
+par(mar=c(1.5,1.6,.5,.5))
+plot(ER~IVcov, 
+     data=plt,
+     xlab="",
+     ylab="")
+plot(ER~WTL, 
+     data=plt,
+     xlab="",
+     ylab="")
+
+# Bas
+par(mar=c(4,4.5,.5,.5))
+plot(CH4~Tair, 
+     data=plt,
+     xlab="",
+     ylab="")
+title(ylab=expression(paste("CH4 (", nmol,m^-2,s^-1,")", sep="")), line=2)
+title(xlab="Température de l'air (°C)", line=2.5)
+par(mar=c(4,1.6,.5,.5))
+plot(CH4~IVcov, 
+     data=plt,
+     xlab="",
+     ylab="")
+title(xlab="Indice de végétation", line=2.5)
+plot(CH4~WTL, 
+     data=plt,
+     xlab="",
+     ylab="")
+title(xlab="Niveau de la nappe (cm)", line=2.5)
+
+par(mfrow=c(1,1))
+# dev.off()
+
+# plt <- dfgesm %>%
+#   select(NEE, ER, GPP, CH4, IVcov, WTL, Tair)
+
+plt2 <- df %>%
+  select(NEE, ER, GPP, CH4, IVcov, WTL, Tair)%>%
+  rename(RE=ER, PPB=GPP, IV=IVcov, "Niveau nappe"=WTL)%>%
+  gather("F_type", "F_val", 1:4)%>%
+  gather("FC_type", "FC_val", 1:3)%>%
+  filter(F_type != "NEE")
+
+ggplot(plt2, aes(x = FC_val, y = F_val))+
+  geom_point(size=3, shape=21)+
+  facet_grid(F_type~FC_type, scales="free")+
+  annotate("text", label=c("A","B","C","D","E","F","G","H","I"), x=+Inf, y=+Inf, hjust=2, vjust=2)+
+  labs(x="Facteurs contrôlants", y=expression(paste("Flux (", mu, mol,m^-2,s^-1,")", sep="")))+
+  theme_bw()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        strip.background = element_blank(),
+        panel.grid.minor = element_blank()) 
+ggsave("Fl_FC.pdf", path=savpth, width=7, height=5)
+
+```
+
+```{r, eval=F}
+t <- plt2 %>%
+# filter(FC_type == "Niveau nappe", F_type == "PPB")%>%
+# filter(FC_type == "Niveau nappe", F_type == "RE")%>%
+# filter(FC_type == "Niveau nappe", F_type == "CH4")%>%
+filter(FC_type == "Tair", F_type == "PPB")%>%
+# filter(FC_type == "Tair", F_type == "RE")%>%
+# filter(FC_type == "Tair", F_type == "CH4")%>%
+# filter(FC_type == "IV", F_type == "PPB")%>%
+# filter(FC_type == "IV", F_type == "RE")%>%
+# filter(FC_type == "IV", F_type == "CH4")%>%
+do(na.omit(.))
+
+cor(t$F_val, t$FC_val)
+plot(t$F_val~t$FC_val)
+```
+
+# Data
+```{r sav_mdl_par, eval=F}
+export <- res %>%
+  select(mdl, a, b, c)
+
+write.csv(export, file.path(outpth, "/CH4_mdlpar.csv"), quote=F, row.names=F)
+```
+
