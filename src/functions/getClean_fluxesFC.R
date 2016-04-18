@@ -1,3 +1,14 @@
+# Obj ---------------------------------------------------------------------
+# This script gather all fluxes and environmental data.
+# These are elaborate data that have been treated : 
+# The vegetation data are treated by : [details TODO]
+
+# Output : 
+# This script output 2 files :
+# - cl_fluxesFC.csv (data per measurement point)
+# - cl_fluxesFC_avg.csv (data averaged by campaign)
+
+
 # Setup -------------------------------------------------------------------
 rm(list=ls(all=TRUE)) # Clean start
 library(laguettevarspa)
@@ -11,13 +22,15 @@ outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/dat
 ## Flux CO2
 dfco2 <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_CO2.csv") %>%
   spread(F_type, flux)%>%
-  select(ID_camp, date, placette, ER, GPP, NEE)
+  select(ID_camp, date, placette, ER, GPP, NEE)%>%
+  mutate(placette = as.character(placette))
   
 ## Flux CH4
 dfch4 <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_CH4.csv") %>%
   mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
   mutate(timestamp=as.POSIXct(round(timestamp, "hours")))%>%
-  select(ID_camp, timestamp, placette, CH4)
+  select(ID_camp, timestamp, placette, CH4)%>%
+  mutate(placette = as.character(placette))
 
 # Retrieve environmental variables
 dfctrl <- svCtrlFact %>%
@@ -25,7 +38,8 @@ dfctrl <- svCtrlFact %>%
   gather(type, val, 6:7)%>% # PAR mean calculation
   group_by(ID_camp, placette)%>%
   summarise(WTL=mean(WTL, na.rm=T), PAR=mean(val, na.rm=T), RH_m=mean(RH_m, na.rm=T), NPOC=mean(NPOC, na.rm=T))%>%
-  ungroup()
+  ungroup()%>%
+  mutate(placette = as.character(placette))
 
 # Retrieve temperature data
 dfT <- svTemperature%>%
@@ -58,5 +72,48 @@ df <- dfctrl %>%
   left_join(., cT, by=c("timestamp"))#%>%
 # filter(!is.na(CH4))#
 
+
+# Averaging by campaign ---------------------------------------------------
+dfm <- df %>%
+  mutate(date=as.POSIXct(as.character(date)))%>%
+  group_by(ID_camp)%>%
+  summarise(
+    GPP_sd = sd(GPP, na.rm=T),
+    GPP = mean(GPP, na.rm=T),
+    ER_sd = sd(ER, na.rm=T),
+    ER = mean(ER, na.rm=T),
+    NEE_sd = sd(NEE, na.rm=T),
+    NEE = mean(NEE, na.rm=T),
+    CH4_sd = sd(CH4, na.rm=T),
+    CH4 = mean(CH4, na.rm=T),
+    date=min(date, na.rm=T),
+    timestamp=mean(timestamp, na.rm=T),
+    Tair=mean(Tair, na.rm=T),
+    TairS=mean(TairS, na.rm=T),
+    T5S=mean(T5S, na.rm=T),
+    T10S=mean(T10S, na.rm=T),
+    T20S=mean(T20S, na.rm=T),
+    T40S=mean(T40S, na.rm=T),
+    T5=mean(T5, na.rm=T),
+    T10=mean(T10, na.rm=T),
+    T20=mean(T20, na.rm=T),
+    T30=mean(T30, na.rm=T),
+    T40=mean(T40, na.rm=T),
+    T50=mean(T50, na.rm=T),
+    T60=mean(T60, na.rm=T),
+    T70=mean(T70, na.rm=T),
+    T80=mean(T80, na.rm=T),
+    T90=mean(T90, na.rm=T),
+    T100=mean(T100, na.rm=T),
+    IVcov=mean(IVcov, na.rm=T),
+    A=mean(A, na.rm=T),
+    H=mean(H, na.rm=T),
+    M=mean(M, na.rm=T),
+    RH_m=mean(RH_m, na.rm=T),
+    NPOC=mean(NPOC, na.rm=T),
+    WTL=mean(WTL, na.rm=T)
+  )
+
 # Save treatement in file -------------------------------------------------
 write.csv(df, file.path(outpath, "cl_fluxesFC.csv"), quote=F, row.names=F)
+write.csv(dfm, file.path(outpath, "cl_fluxesFC_avg.csv"), quote=F, row.names=F)
