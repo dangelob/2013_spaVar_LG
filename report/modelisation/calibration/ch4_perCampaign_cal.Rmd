@@ -20,7 +20,8 @@ output:
 
 # Objectives
 This files describe the calibration of the CH4 fluxes. One file is generated:
-- CH4_mdlpar.csv (contains models parameters)
+
+* CH4_mdlpar.csv (contains models parameters)
 
 # Setup
 

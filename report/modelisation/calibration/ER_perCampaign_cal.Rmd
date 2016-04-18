@@ -20,7 +20,8 @@ output:
 
 # Objectives
 This files describe the calibration of the ER fluxes. One file is generated:
-- ER_mdlpar.csv (contains models parameters)
+
+* ER_mdlpar.csv (contains models parameters)
 
 # Setup
 
