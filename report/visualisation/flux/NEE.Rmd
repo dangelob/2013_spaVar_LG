@@ -4,69 +4,165 @@ author: "Benoît D'ANGELO"
 date: "23/02/2015"
 output:
   html_document:
+    code_folding: hide
     includes:
       in_header: ../../in_header.html
     theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: true
 ---
 
 <h3><a href="../vis_toc.html"> Visualisation </a></h3>
+  
 ***
 
-```{r, echo=FALSE, message=FALSE}
-rm(list=ls(all=TRUE))
+# Setup
 
-library(laguettevarspa)
+## Load packages and functions
+
+```{r setup, message=FALSE, warning=FALSE}
+# File name : /2013_spavar_LG/report/visualisation/flux/NEE.Rmd
+rm(list=ls(all=TRUE)) # Clean start
+
+# Homemade package
+library(laguettevarspa) # "spatial variability" data
+library(bdphdtoolbox)
+# See "Howto"" page to install it
+
+# CRAN package
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(scales)
+
+# Figure save path
 savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 
-source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/vis_plot.R")
-# TODO
-# units on axis
+# Home made functions
+source("../../../src/report/vis_plot.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/vis_plot.R")
+# functions: flplt, p7_fl_plt, ann_month_mean_fl, month_mean_fl
 
+# Load custom color set
+source("../../../src/report/custom_colors.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
 ```
 
+## Load and transform data
 
-```{r load_data, echo=FALSE}
+```{r load_data, echo=TRUE}
+# Load data from package (laguettevarspa)
 df <- svNetFlux %>%
   filter(type == "NEE")%>%
   separate(date, c("year","month", "day"),remove = F) %>%
   separate(timestamp, c("ts_date", "time"), sep=" ") %>%
-  mutate(time = substr(time, 1, 5))
+  mutate(time = substr(time, 1, 5), ID_camp = as.factor(ID_camp))
 
-lab_Y <- expression(paste("ENE (", mu, mol,m^-2,s^-1,")", sep=""))
-
+# Average data by campaign
 mdf <- df %>%
   group_by(ID_camp)%>%
-  summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F), date=mean(date))
+  summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F), date=mean(date))%>%
+  separate(date, c("year","month", "day"),remove = F)
+
+# Average data by measurement point
+mpdf <- df %>%
+  group_by(placette)%>%
+  filter(ID_camp == 6)%>%
+  summarise(netCO2F_sd=sd(netCO2F),netCO2F=mean(netCO2F))%>%
+  arrange(netCO2F)
+
+# Setup Y axis label
+lab_Y <- expression(paste("Re (", mu, mol,m^-2,s^-1,")", sep=""))
+```
+
+# Annual NEE variation 
+
+## Annual NEE average
+
+```{r, comment=NULL}
+aa <- df %>%
+  group_by(year) %>%
+  summarise(NEE = round(mean(netCO2F, na.rm=T),2), NEE_sd = round(sd(netCO2F, na.rm=T),2))
+
+as.data.frame(aa)
 ```
 
 
-## NEE measurements across field campaign
-```{r, echo=FALSE, fig.width=9}
+## All data points {.tabset}
+
+
+### All data
+
+```{r}
 # Observation number
 nobs <- paste("N :", as.character(NROW(df)))
 # quality criteria on R2
 df$colR2 <- ifelse(df$R2 >= 0.8, ">= 0.8", "< 0.8")
+```
 
-flplt(df, lab_Y)+ # /src/report/vis_plot
+```{r raw data, message=FALSE, fig.width=9}
+flplt(df, lab_Y)+ # plot function location: /src/report/vis_plot
   geom_point(aes(color=colR2), shape=21, size=4)+
   theme(legend.position=c(.9,.9), legend.key=element_blank())
 ggsave("NEE_evolution.pdf", path=savpth)
+```
 
+### Averaged by campaign (B&W)
+
+```{r, fig.width=9}
 ggplot(mdf, aes(x=date, y=netCO2F))+
   geom_point(size=3)+
+  annotate("text", x=as.Date("2015-03-01"), y=12, label="B", size=5)+
   geom_linerange(aes(x=date, ymin=netCO2F-netCO2F_sd, ymax=netCO2F+netCO2F_sd))+
-  labs(y=lab_Y, x="2013-2014")+
+  labs(y=lab_Y, x="")+
   scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
-  theme_bw()+
-  theme(panel.grid.major.x = element_blank(), # DIAPO
-        panel.grid.major.y = element_line(size=.05, colour="gray95"), # DIAPO
-        panel.grid.minor = element_blank()) # DIAPO)
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
 ggsave("NEE_evolution_avg.pdf", path=savpth, width=7, height=3)
 ```
+
+### Averaged by campaign (color)
+
+```{r, fig.width=9}
+### DIAPO
+ggplot(mdf, aes(x=date, y=netCO2F))+
+  geom_point(size=3)+
+  annotate("text", x=as.Date("2015-02-01"), y=10, label="N=20", size=4)+
+  annotate("text", x=as.Date("2013-06-15"), y=10, label="2013", size=5)+
+  annotate("text", x=as.Date("2014-06-15"), y=10, label="2014", size=5)+
+  annotate("text", x=as.Date("2013-12-01"), y=3.85, label="2,85", size=5, color=orange)+
+  annotate("segment", x=as.Date("2013-03-05"), xend=as.Date("2013-12-15"), y=2.85, yend=2.85, linetype="dashed", size=1, color=orange)+
+  annotate("text", x=as.Date("2014-12-01"), y=3.93, label="2,93", size=5, color=orange)+
+  annotate("segment", x=as.Date("2014-03-15"), xend=as.Date("2014-12-15"), y=2.93, yend=2.93, linetype="dashed", size=1, color=orange)+
+  geom_linerange(aes(x=date, ymin=netCO2F-netCO2F_sd, ymax=netCO2F+netCO2F_sd))+
+  labs(y=lab_Y, x="")+
+  scale_x_date(breaks = date_breaks("2 months"), labels = date_format("%b"))+
+  theme_classic()+
+  theme(plot.margin=unit(c(0,0,0,0),"mm"))
+ggsave("VS_NEE_avg.pdf", path=savpth, width=7, height=3)
+```
+
+### Averaged by campaign (data)
+
+```{r, results="asis"}
+tbl <- as.data.frame(mdf[,1:4])%>%
+  mutate(NEE=round(netCO2F, 2), NEE_sd=round(netCO2F_sd,2))%>%
+  select(ID_camp, date, NEE, NEE_sd)
+
+knitr::kable(tbl, caption="NEE fluxes averaged by campaign")
+```
+
+## Individual measurement points
+
+```{r, fig.width=10, fig.height=6}
+p7_fl_plt(df, lab_Y)+ # plot function location: /src/report/vis_plot
+  geom_point(aes(color=colR2))+
+  scale_colour_manual(values=c("red","black"))
+ggsave("NEE_p7_evolution.pdf", path=savpth)
+```
+  
+# Autre
 
 ## Annual mean differences significance:
 
@@ -80,31 +176,14 @@ t.test(A$netCO2F, B$netCO2F)
 
 The normality tests are available [here](flux_norm_test.html)
 
-
-## Individual plot measurements
-
-```{r, echo=FALSE, fig.width=10, fig.height=6}
-p7_fl_plt(df, lab_Y)+
-  geom_point(aes(color=colR2))+
-  scale_colour_manual(values=c("red","black"))
-ggsave("NEE_p7_evolution.pdf", path=savpth)
-```
-
-## Annual mean and standard deviation
-```{r, echo=FALSE}
-df %>%
-  group_by(year) %>%
-  summarise(NEE = round(mean(netCO2F, na.rm=T),2), NEE_sd = round(sd(netCO2F, na.rm=T),2))
-```
-
 ## Montly NEE means per year
 
-```{r, echo=FALSE}
-ann_month_mean_fl(df, lab_Y)
+```{r, echo=TRUE}
+ann_month_mean_fl(df, lab_Y) # plot function location: /src/report/vis_plot
 ```
 
 ## Montly NEE mean (pooling all years)
 
-```{r, echo=FALSE}
-month_mean_fl(df, lab_Y)
+```{r, echo=TRUE}
+month_mean_fl(df, lab_Y) # plot function location: /src/report/vis_plot
 ```
