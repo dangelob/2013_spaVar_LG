@@ -599,8 +599,7 @@ select(best, -best)
 export <- res %>%
   select(mdl, a, b, c, d)
 
-filepath_mdl <- paste0(outpth, "/GPPsat_mdlpar.csv")
-write.csv(export, filepath_mdl, quote=F, row.names=F)
+write.csv(export, file.path(outpth, "GPPsat_mdlpar.csv"), quote=F, row.names=F)
 ```
 
 
