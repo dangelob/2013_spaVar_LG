@@ -24,6 +24,8 @@ This files describe the calibration of the GPP fluxes. One file is generated:
 * GPPsat_mdlpar.csv (contains models parameters)
 * GPP_mdlpar.csv
 
+Note: Maybe 2 files with parameters are not necessary some cleaning might be a good idea (initialy the code was spread over 2 files explaining the 2 output files)
+
 # Setup
 
 ## Load packages and set paths
