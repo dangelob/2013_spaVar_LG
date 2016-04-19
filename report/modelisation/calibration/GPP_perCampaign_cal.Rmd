@@ -93,20 +93,20 @@ title(ylab="résidus", line=2)
 }
 
 ## Plotting functions
-pmesmod2 <- function(Y, pY){
-par(mar=c(4,4.5,.5,.5))
-plot(Y~pY, 
-     ylim=c(0,15), xlim=c(0,15),
-     xlab="", ylab="", data=df)
-title(xlab=expression(paste("GPP modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
-title(ylab=expression(paste("GPP mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2 )
-abline(a=0, b=1, col="black", lty=2)
-text(19,20, "1:1", srt=45)
-}
+# pmesmod2 <- function(Y, pY){
+# par(mar=c(4,4.5,.5,.5))
+# plot(Y~pY, 
+#      ylim=c(0,15), xlim=c(0,15),
+#      xlab="", ylab="", data=df)
+# title(xlab=expression(paste("GPP modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
+# title(ylab=expression(paste("GPP mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2 )
+# abline(a=0, b=1, col="black", lty=2)
+# text(19,20, "1:1", srt=45)
+# }
 
 presmod2 <- function(Y, pY){
 par(mar=c(4,4,.5,.5))
-plot((Y-pY)~pY, 
+plot((Y-pY)~pY,
      xlim=c(0,15),
      xlab="", ylab="")
 title(xlab="valeurs prédites", line=2.5)
@@ -803,7 +803,7 @@ ldf
 ```{r, fig.width=8, fig.height=4}
 dat <- filter(GPPpred, mdl == "Tair")
 par(mfrow=c(1,2))
-pmesmod2(dat$GPP, dat$pGPP)
+plt_mesmod(dat$GPP, dat$pGPP, mes_label = "measured GPP", mod_label = "modelled GPP")
 presmod2(dat$GPP, dat$pGPP)
 par(mfrow=c(1,1))
 mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
@@ -814,7 +814,7 @@ mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
 ```{r, fig.width=8, fig.height=4}
 dat <- filter(GPPpred, mdl == "Tair_IVcov")
 par(mfrow=c(1,2))
-pmesmod2(dat$GPP, dat$pGPP)
+plt_mesmod(dat$GPP, dat$pGPP, mes_label = "measured GPP", mod_label = "modelled GPP")
 presmod2(dat$GPP, dat$pGPP)
 par(mfrow=c(1,1))
 mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
@@ -825,7 +825,7 @@ mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
 ```{r, fig.width=8, fig.height=4}
 dat <- filter(GPPpred, mdl == "T5")
 par(mfrow=c(1,2))
-pmesmod2(dat$GPP, dat$pGPP)
+plt_mesmod(dat$GPP, dat$pGPP, mes_label = "measured GPP", mod_label = "modelled GPP")
 presmod2(dat$GPP, dat$pGPP)
 par(mfrow=c(1,1))
 iT5 <- mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
@@ -837,7 +837,7 @@ iT5
 ```{r, fig.width=8, fig.height=4}
 dat <- filter(GPPpred, mdl == "T5_IVcov")
 par(mfrow=c(1,2))
-pmesmod2(dat$GPP, dat$pGPP)
+plt_mesmod(dat$GPP, dat$pGPP, mes_label = "measured GPP", mod_label = "modelled GPP")
 presmod2(dat$GPP, dat$pGPP)
 par(mfrow=c(1,1))
 iT5_IV <- mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
@@ -858,11 +858,14 @@ lab_Ta <- paste0(
 
 cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPP_Tair_mdl_mesmod.pdf"), width=10, height=4)
 par(mfrow=c(1,2))
-pmesmod2(dat_Ta$GPP, dat_Ta$pGPP)
+plt_mesmod(dat_Ta$GPP, dat_Ta$pGPP, mes_label = "PPB mesurée", mod_label = "PPB modélisée")
+# pmesmod2(dat_Ta$GPP, dat_Ta$pGPP)
 text(x=.4, y=12, labels=lab_Ta, adj=0)
 presmod2(dat_Ta$GPP, dat_Ta$pGPP)
 par(mfrow=c(1,1))
+```
 
+```{r}
 dat_TaIV <- filter(GPPpred, mdl == "Tair_IVcov")
 labf <- format(mdl_indic(dat_TaIV$GPP, dat_TaIV$pGPP, mdl=dat_TaIV$mdl), digits=2, nsmall=2)
 lab_TaIV <- paste0(
@@ -873,24 +876,29 @@ lab_TaIV <- paste0(
 
 cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPP_TairIV_mdl_mesmod.pdf"), width=10, height=4)
 par(mfrow=c(1,2))
-pmesmod2(dat_TaIV$GPP, dat_TaIV$pGPP)
+
+# pmesmod2(dat_TaIV$GPP, dat_TaIV$pGPP)
+plt_mesmod(dat_TaIV$GPP, dat_TaIV$pGPP, mes_label = "PPB mesurée", mod_label = "PPB modélisée")
 text(x=.4, y=12, labels=lab_TaIV, adj=0)
 presmod2(dat_TaIV$GPP, dat_TaIV$pGPP)
 par(mfrow=c(1,1))
+```
 
+```{r}
 # Fig Tair res + Tair IV res
-
 cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPP_mdl_mesmod_sig.pdf"), width=9, height=8)
 par(mfrow=c(2,2))
 
 # Haut
-pmesmod2(dat_Ta$GPP, dat_Ta$pGPP)
+# pmesmod2(dat_Ta$GPP, dat_Ta$pGPP)
+plt_mesmod(dat_Ta$GPP, dat_Ta$pGPP, mes_label = "PPB mesurée", mod_label = "PPB modélisée")
 text(x=.4, y=13, labels=lab_Ta, adj=0)
 text(x=14, y=1, labels="a", adj=0, cex=2)
 presmod2(dat_Ta$GPP, dat_Ta$pGPP)
 text(x=14, y=-3.7, labels="b", adj=0, cex=2)
 # Bas
-pmesmod2(dat_TaIV$GPP, dat_TaIV$pGPP)
+# pmesmod2(dat_TaIV$GPP, dat_TaIV$pGPP)
+plt_mesmod(dat_TaIV$GPP, dat_TaIV$pGPP, mes_label = "PPB mesurée", mod_label = "PPB modélisée")
 text(x=.4, y=13, labels=lab_TaIV, adj=0)
 text(x=14, y=1, labels="c", adj=0, cex=2)
 presmod2(dat_TaIV$GPP, dat_TaIV$pGPP)
