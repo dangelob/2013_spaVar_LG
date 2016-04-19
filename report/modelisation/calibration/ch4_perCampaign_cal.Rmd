@@ -98,22 +98,7 @@ mdl_param <- function(df, mdl){
                    bic=BIC(mdl))
   return(df)
 }
-
-pmesmod <- function(df, mdl){
-par(mar=c(4,4.5,.5,.5))
-plot(Y~predict(mdl), 
-     # ylim=c(0,200),xlim=c(0,200),
-     xlab="", ylab="", data=df)
-     # xlab=expression(paste("CH"[4]," modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
-     
-     # ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=df)
-title(xlab=expression(paste("CH"[4]," modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
-title(ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-abline(a=0, b=1, col="black", lty=2)
-text(.16,.17, "1:1", srt=45)
-}
 ```
-
 
 ## Load and transform data
 
@@ -247,7 +232,13 @@ cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaV
 par(mfrow=c(2,2))
 
 # haut
-pmesmod(dmdl_IVcov, mdl_IVcov_exp)
+plot(dmdl_IVcov$Y~predict(mdl_IVcov_exp), 
+     xlab="", ylab="")
+title(xlab=expression(paste("CH"[4]," modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
+title(ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
+abline(a=0, b=1, col="black", lty=2)
+text(.16,.17, "1:1", srt=45)
+# pmesmod(dmdl_IVcov, mdl_IVcov_exp)
 text(x=2, y=172, labels=lab11, adj=0)
 text(x=190, y=6, labels="a", adj=0, cex=2)
 
