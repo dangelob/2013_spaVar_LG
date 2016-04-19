@@ -39,23 +39,11 @@ options(width = 200)
 
 ```{r load_mdl_par}
 ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
-# GPPpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPP_mdlpar.csv")
-# GPPsatpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPPsat_mdlpar.csv")
 
 lERpar <- ERpar %>%
   gather(par, value, 2:4)%>%
   do(na.omit(.))%>%
   arrange(mdl, par)
-
-# lGPPpar <- GPPpar %>%
-#   gather(par, value, 2)%>%
-#   do(na.omit(.))%>%
-#   arrange(mdl, par)
-# 
-# lGPPsatpar <- GPPsatpar %>%
-#   gather(par, value, 2:5)%>%
-#   do(na.omit(.))%>%
-#   arrange(mdl, par)
 ```
 
 
@@ -93,47 +81,6 @@ get_pER <- function(name="Tair", df=df){
   # return(as.vector(pER[,1]))
   return(pER)
 }
-
-# get_pGPP <- function(name="Tair", df=df){
-#   parGPPsat <- lGPPsatpar %>%
-#     filter(mdl == name)
-#   parGPP <- lGPPpar %>%
-#     filter(mdl == name)
-#   # Vérif nom mdl
-#   if(NROW(parGPPsat) == 0){
-#     cat("souci avec mdl, pas de paramètres trouvés \n")
-#   }
-#   #Savoir si 1 ou plusieur variable création df ER, X1, X2
-#   if(grepl("_", name)){
-#     names <- unlist(strsplit(name, "_"))
-#     dft <- df[,c("GPP", "PAR", names[1], names[2])]
-#   }else{
-#     dft <- df[,c("GPP", "PAR", name)]
-#   }
-#   # Calcul pER en fonction du nb de par
-#   if(NCOL(dft) == 3){
-#     a <- parGPPsat$val[1]
-#     b <- parGPPsat$val[2]
-#     c <- parGPPsat$val[3]
-#     X1 <- dft[,3]
-#     pGPPsat <- a * exp(-((X1-b)/c)^2)
-#   }else if(NCOL(dft) == 4){
-#     a <- parGPPsat$val[1]
-#     b <- parGPPsat$val[2]
-#     c <- parGPPsat$val[3]
-#     d <- parGPPsat$val[4]
-#     X1 <- dft[,3]
-#     X2 <- dft[,4]
-#     pGPPsat <- (a*X2 + d) * exp(-((X1-b)/c)^2)
-#   }else{
-#     cat("nb de par > 3\n")
-#   }
-#   pGPPsat <- as.vector(pGPPsat[,1])
-#   i <- parGPP$val[1]
-#   pGPP = (i*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*i))
-#   return(pGPP)
-# }
-
 
 mdl_indic <- function(Y, pY, mdl){
   mdl <- unique(mdl)
@@ -174,26 +121,12 @@ df <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG
 ```{r, compil_data}
 dfFLUX <- df %>%
   select(NEE, GPP, ER, PAR, localisation, Tair, T5, IVcov, H)
+
 # Liste des modèles à tester
-# GPP_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_IVcov")
 ER_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_H", "T5_IVcov")
-# Calcul prediction NEE
-# Si NEE GPP et ER dans la mm boucle : doublons pour ER et GPP
-# predNEE <- data.frame()
-# predGPP <- data.frame()
+
 predER <- data.frame()
-# for (i in GPP_par){
-#     pGPP <- get_pGPP(i, dfFLUX)
-#     tpGPP <- data.frame(GPP=df$GPP, mdl=i, loc=df$localisation, pGPP=pGPP)
-#     predGPP <- rbind(predGPP,tpGPP)
-#   for (j in ER_par){
-#     pER <- get_pER(j, dfFLUX)
-#     pNEE <- pGPP - pER
-#     mdl_name <- paste0(i, "-", j)
-#     tpNEE <- data.frame(NEE=df$NEE, mdl=mdl_name, loc=df$localisation, pNEE=pNEE)
-#     predNEE <- rbind(predNEE,tpNEE)
-#   }
-# }
+
 for (j in ER_par){
     pER <- get_pER(j, dfFLUX)
     tpER <- data.frame(ER=df$ER, mdl=j, loc=df$localisation, pER=pER)
@@ -202,22 +135,7 @@ for (j in ER_par){
 ```
 
 ```{r}
-# Tableau resultats modèles NEE
-# resNEE <- predNEE %>%
-#   do(na.omit(.))%>%
-#   group_by(mdl)%>%
-#   do(mdl_indic(.$NEE, .$pNEE, mdl=.$mdl))%>%
-#   ungroup()%>%
-#   arrange(desc(aR2))
-# 
-# resGPP <- predGPP %>%
-#   do(na.omit(.))%>%
-#   group_by(mdl)%>%
-#   do(mdl_indic(.$GPP, .$pGPP, mdl=.$mdl))%>%
-#   # do(mdl_indic(.$GPP, .$pGPP))%>%
-#   ungroup()%>%
-#   arrange(desc(aR2))
-
+# Tableau resultats modèles ER
 resER <- predER %>%
   do(na.omit(.))%>%
   group_by(mdl)%>%
@@ -225,19 +143,6 @@ resER <- predER %>%
   ungroup()%>%
   arrange(desc(aR2))
 ```
-
-## NEE
-
-```{r}
-# R2l <- resNEE %>%
-#   select(mdl, R2)%>%
-#   mutate(R2 = round(R2, 2))%>%
-#   separate(mdl, c("mdl_GPP", "mdl_ER"), "-")%>%
-#   spread(mdl_ER, R2)
-# 
-# as.data.frame(R2l)
-```
-
 
 # ER {.tabset}
 
@@ -307,21 +212,5 @@ title(ylab=expression(paste("RE mesurée (", mu, mol,m^-2,s^-1,")", sep="")), li
 abline(a=0, b=1, col="black", lty=2)
 text(4.5,4.9, "1:1", srt=45)
 dev.off()
-
-# GPP
-dat <- filter(predGPP, mdl == "Tair_IVcov")
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/validation", "GPP_TairIVcov_val.pdf"), width=4, height=4)
-par(mar=c(4,4,.5,.5))
-plot(GPP~pGPP,
-     data=dat,
-     xlim=c(0,5), ylim=c(0,5),
-     xlab="", ylab="")
-title(xlab=expression(paste("PBB modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
-title(ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-abline(a=0, b=1, col="black", lty=2)
-text(4.5,4.9, "1:1", srt=45)
-dev.off()
-
 ```
 
