@@ -38,50 +38,17 @@ options(width = 200)
 ```
 
 ```{r load_mdl_par}
-ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
+ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")%>%
+  mutate(mdl=paste0("exp-",mdl)) # RUSTINE
 
-lERpar <- ERpar %>%
-  gather(par, value, 2:4)%>%
-  do(na.omit(.))%>%
-  arrange(mdl, par)
+# lERpar <- ERpar %>%
+#   gather(par, value, 2:4)%>%
+#   do(na.omit(.))%>%
+#   arrange(mdl, par)
 ```
 
 
 ```{r}
-get_pER <- function(name="Tair", df=df){
-  parER <- lERpar %>%
-    filter(mdl == name)
-  # Vérif nom mdl
-  if(NROW(parER) == 0){
-    cat("souci avec mdl, pas de paramètres trouvés_n")
-  }
-  
-  #Savoir si 1 ou plusieur variable création df ER, X1, X2
-  if(grepl("_", name)){
-    names <- unlist(strsplit(name, "_"))
-    dft <- df[,c("ER", names[1], names[2])]
-  }else{
-    dft <- df[,c("ER", name)]
-  }
-  
-  # Calcul pER en fonction du nb de par
-  pER <- c()
-  if(NROW(parER) == 2){
-    a <- parER$val[1]
-    b <- parER$val[2]
-    pER <- a*exp(b*dft[,2])
-  }else if(NROW(parER) == 3){
-    a <- parER$val[1]
-    b <- parER$val[2]
-    c <- parER$val[3]
-    pER <- (a*dft[,3]+c)*exp(b*dft[,2])
-  }else{
-    cat("nb de par > 3\n")
-  }
-  # return(as.vector(pER[,1]))
-  return(pER)
-}
-
 mdl_indic <- function(Y, pY, mdl){
   mdl <- unique(mdl)
   if(grepl("_", mdl)){
@@ -119,16 +86,13 @@ df <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG
 ```
 
 ```{r, compil_data}
-dfFLUX <- df %>%
-  select(NEE, GPP, ER, PAR, localisation, Tair, T5, IVcov, H)
-
-# Liste des modèles à tester
-ER_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_H", "T5_IVcov")
+ER_par <- c("exp-Tair", "exp-T5", "exp-Tair_H", "exp-Tair_IVcov", "exp-T5_H", "exp-T5_IVcov")
 
 predER <- data.frame()
-
 for (j in ER_par){
-    pER <- get_pER(j, dfFLUX)
+    dat <- prd_seldat(df=df, flux = "ER", id_eq = j) # Select data
+    par <- prd_gpar(id_eq = j, dfparam = ERpar) # Select parameter
+    pER <- gpER(df=prd_prpdat(dat), p=par) # prep data and calc pred
     tpER <- data.frame(ER=df$ER, mdl=j, loc=df$localisation, pER=pER)
     predER <- rbind(predER,tpER)
 }
@@ -153,42 +117,42 @@ resER
 ## Ta
 
 ```{r, fig.width=4, fig.height=4}
-datER <- filter(predER, mdl == "Tair")
+datER <- filter(predER, mdl == "exp-Tair")
 plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 ```
 
 ## T5
 
 ```{r, fig.width=4, fig.height=4}
-datER <- filter(predER, mdl == "T5")
+datER <- filter(predER, mdl == "exp-T5")
 plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 ```
 
 ## Tair_H
 
 ```{r, fig.width=4, fig.height=4}
-datER <- filter(predER, mdl == "Tair_H")
+datER <- filter(predER, mdl == "exp-Tair_H")
 plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 ```
 
 ## T5_H
 
 ```{r, fig.width=4, fig.height=4}
-datER <- filter(predER, mdl == "T5_H")
+datER <- filter(predER, mdl == "exp-T5_H")
 plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 ```
 
 ## Tair_IVcov
 
 ```{r, fig.width=4, fig.height=4}
-datER <- filter(predER, mdl == "Tair_IVcov")
+datER <- filter(predER, mdl == "exp-Tair_IVcov")
 plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 ```
 
 ## T5_IVcov
 
 ```{r, fig.width=4, fig.height=4}
-datER <- filter(predER, mdl == "T5_IVcov")
+datER <- filter(predER, mdl == "exp-T5_IVcov")
 plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 ```
 
