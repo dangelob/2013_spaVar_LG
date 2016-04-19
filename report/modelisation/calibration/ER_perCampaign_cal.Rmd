@@ -415,7 +415,6 @@ plot(resid(mdl_2)~predict(mdl_2),
      xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")),
      ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep=""))) 
 par(mfrow=c(1,1))
-dev.off()
 
 cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ER", "ER_T5_mdl_res.pdf"), width=5, height=4)
 par(mfrow=c(1,1), mar=c(4,4.5,.5,.5))
@@ -425,7 +424,6 @@ plot(resid(mdl_2)~dmdl_1$IVcov,
      xlab="indice de végétation",
      ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep=""))) 
 par(mfrow=c(1,1))
-dev.off()
 
 ## Figure Tair T5
 
@@ -456,7 +454,6 @@ title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=
 text(x=9, y=-1.6, labels="d", adj=0, cex=2)
 
 par(mfrow=c(1,1))
-dev.off()
 
 # cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance", "ER_1par_mdl_res.pdf"), width=10, height=8)
 # par(mfrow=c(2,2))
@@ -466,7 +463,6 @@ dev.off()
 # text(x=1, y=8, labels=lab21, adj=0)
 # plot(resid(mdl_2)~dmdl_1$RH_m, main="vs. TES") 
 # par(mfrow=c(1,1))
-# dev.off()
 # 
 # lab11 <- paste(
 #   "y = (", labpar_1_2$a, " * H + ", labpar_1_2$c, ") * exp(", labpar_1_2$b, "*Tair)",
@@ -486,7 +482,6 @@ dev.off()
 # text(x=1, y=8, labels=lab21, adj=0)
 # # plot(resid(mdl_2)~dmdl_1$RH_m, main="vs. TES") 
 # par(mfrow=c(1,1))
-# dev.off()
 ```
 
 # Data
