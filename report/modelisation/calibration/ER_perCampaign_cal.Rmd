@@ -49,7 +49,7 @@ outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data
 
 # allow wider tables and graphes in html output
 options(width = 100)
-knitr::opts_chunk$set(fig.width=12,fig.height=8)
+knitr::opts_chunk$set(fig.width=12,fig.height=8,comment=NA)
 
 # Load custom color set
 source("../../../src/report/custom_colors.R")
@@ -118,26 +118,6 @@ mdl_param <- function(df, mdl){
                    bic=BIC(mdl))
   return(df)
 }
-
-pmesmod <- function(df, mdl){
-par(mar=c(4,4.5,.5,.5))
-plot(Y~predict(mdl), 
-     # ylim=c(0,200),xlim=c(0,200),
-     xlab="", ylab="", data=df)
-     # xlab=expression(paste("CH"[4]," modélisée (", mu, mol,m^-2,s^-1,")", sep="")),
-     
-     # ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=df)
-title(xlab=expression(paste("CH"[4]," modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
-title(ylab=expression(paste("CH"[4]," mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-abline(a=0, b=1, col="black", lty=2)
-text(.16,.17, "1:1", srt=45)
-}
-
-presmod <- function(mdl){
-par(mar=c(4,4,.5,.5))
-plot(resid(mdl)~predict(mdl), xlab="valeurs prédites", ylab="résidus")
-}
-
 ```
 
 
@@ -265,13 +245,13 @@ result %>%
 ## ER~aexp(bTair)
 
 ```{r, fig.height=4, eval=T}
-par_1
+round(par_1, 3)
 
 par(mfrow=c(1,3))
 pER_T(dmdl_1, "température de l'air cm (°C)")
 curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
-pmesmod(dmdl_1, mdl_1)
-presmod(mdl_1)
+plt_mesmod(dmdl_1$Y, predict(mdl_1), mod_label = "modelled ER", mes_label = "measured ER")
+plt_resmod(dmdl_1$Y, predict(mdl_1), x_lim = c(0,10))
 par(mfrow=c(1,1))
 ```
 ```{r, fig.height=7, eval=T}
@@ -289,12 +269,12 @@ par(mfrow=c(1,1))
 ## ER~aexp(bT5)
 
 ```{r, fig.height=4}
-par_2
+round(par_2, 3)
 par(mfrow=c(1,3))
-pER_T(dmdl_1, "température du sol à -5 cm (°C)")
-curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
-pmesmod(dmdl_1, mdl_1)
-presmod(mdl_1)
+pER_T(dmdl_2, "température du sol à -5 cm (°C)")
+curve(par_2$a*exp(par_2$b*x), add=T, col="blue")
+plt_mesmod(dmdl_2$Y, predict(mdl_2), mod_label = "modelled ER", mes_label = "measured ER")
+plt_resmod(dmdl_2$Y, predict(mdl_2), x_lim = c(0,10))
 par(mfrow=c(1,1))
 ```
 ```{r, fig.height=3}
@@ -309,12 +289,12 @@ par(mfrow=c(1,1))
 ## ER~(a*IVcov + c) exp(bTair)
 
 ```{r, fig.height=4, eval=T}
-par_1_1
+round(par_1_1, 3)
 par(mfrow=c(1,3))
 pER_T(dmdl_1_1, "température de l'air cm (°C)")
 # curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
-pmesmod(dmdl_1_1, mdl_1_1)
-presmod(mdl_1_1)
+plt_mesmod(dmdl_1_1$Y, predict(mdl_1_1), mod_label = "modelled ER", mes_label = "measured ER")
+plt_resmod(dmdl_1_1$Y, predict(mdl_1_1), x_lim = c(0,10))
 par(mfrow=c(1,1))
 
 par(mfrow=c(1,3))
@@ -327,12 +307,12 @@ par(mfrow=c(1,1))
 ## ER~(a*H + c) exp(bTair)
 
 ```{r, fig.height=4, eval=T}
-par_1_2
+round(par_1_2, 3)
 par(mfrow=c(1,3))
 pER_T(dmdl_1_2, "température de l'air cm (°C)")
 # curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
-pmesmod(dmdl_1_2, mdl_1_2)
-presmod(mdl_1_2)
+plt_mesmod(dmdl_1_2$Y, predict(mdl_1_2), mod_label = "modelled ER", mes_label = "measured ER")
+plt_resmod(dmdl_1_2$Y, predict(mdl_1_2), x_lim = c(0,10))
 par(mfrow=c(1,1))
 
 par(mfrow=c(1,3))
@@ -346,12 +326,12 @@ par(mfrow=c(1,1))
 ## ER~(a*IVcov + c) exp(bT5)
 
 ```{r, fig.height=4}
-par_2_1
+round(par_2_1, 3)
 par(mfrow=c(1,3))
 pER_T(dmdl_2_1, "température du sol à -5 cm (°C)")
 # curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
-pmesmod(dmdl_2_1, mdl_2_1)
-presmod(mdl_2_1)
+plt_mesmod(dmdl_2_1$Y, predict(mdl_2_1), mod_label = "modelled ER", mes_label = "measured ER")
+plt_resmod(dmdl_2_1$Y, predict(mdl_2_1), x_lim = c(0,10))
 par(mfrow=c(1,1))
 
 par(mfrow=c(1,3))
@@ -364,12 +344,12 @@ par(mfrow=c(1,1))
 ## ER~(a*RH + c) exp(bT5)
 
 ```{r, fig.height=4}
-par_2_3
+round(par_2_3, 3)
 par(mfrow=c(1,3))
 pER_T(dmdl_2_3, "température du sol à -5 cm (°C)")
 # curve(par_1$a*exp(par_1$b*x), add=T, col="blue")
-pmesmod(dmdl_2_3, mdl_2_3)
-presmod(mdl_2_3)
+plt_mesmod(dmdl_2_3$Y, predict(mdl_2_3), mod_label = "modelled ER", mes_label = "measured ER")
+plt_resmod(dmdl_2_3$Y, predict(mdl_2_3), x_lim = c(0,10))
 par(mfrow=c(1,1))
 
 par(mfrow=c(1,3))
@@ -402,7 +382,6 @@ lab21 <- paste0(
 
 cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/ER", "ER_T5_mdl_mesmod.pdf"), width=10, height=4)
 par(mfrow=c(1,2), mar=c(4,4.5,.5,.5))
-# pmesmod( ),
 # par(mar=c(4,4.5,.5,.5))
 plot(Y~predict(mdl_2), ylim=c(0,10), xlim=c(0,10), xlab="", ylab="", data=dmdl_2)
 title(xlab=expression(paste("RE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
@@ -431,7 +410,7 @@ cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaV
 par(mfrow=c(2,2), mar=c(4,4.5,.5,.5))
 
 # Haut 
-pmesmod(dmdl_1, mdl_1)
+plt_mesmod(dmdl_1$Y, predict(mdl_1), mod_label = "RE modélisée", mes_label = "Re mesurée")
 text(x=.1, y=8.6, labels=lab11, adj=0)
 text(x=9, y=1, labels="a", adj=0, cex=2)
 
@@ -442,7 +421,7 @@ title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=
 text(x=9, y=-1, labels="b", adj=0, cex=2)
 
 # Bas
-pmesmod(dmdl_2, mdl_2)
+plt_mesmod(dmdl_2$Y, predict(mdl_2), mod_label = "RE modélisée", mes_label = "RE mesurée")
 text(x=.1, y=8.6, labels=lab21, adj=0)
 text(x=9, y=1, labels="c", adj=0, cex=2)
 
