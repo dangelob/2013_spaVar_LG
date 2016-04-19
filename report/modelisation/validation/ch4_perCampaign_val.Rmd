@@ -189,9 +189,7 @@ for (j in CH4_par){ # for each mod
 ```
 
 
-# Validation results
-
-## Overview
+# Validation results {.tabset}
 
 ```{r}
 # Tableau resultats modèles NEE
@@ -242,6 +240,5 @@ title(xlab=expression(paste("CH"[4], " modélisée (", mu, mol,m^-2,s^-1,")", se
 title(ylab=expression(paste("CH"[4], " mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
 abline(a=0, b=1, col="black", lty=2)
 text(0.09,0.095, "1:1", srt=45)
-dev.off()
 ```
 
