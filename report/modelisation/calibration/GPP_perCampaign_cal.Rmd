@@ -19,12 +19,11 @@ output:
 ***
 
 # Objectives
-This files describe the calibration of the GPP fluxes. One file is generated:
+This files describe the calibration of the GPP fluxes. This calibration is made in 2 steps, first the calibration using only flux data with light saturation (GPPsat). Then the ponderation with the light (GPP)
 
-* GPPsat_mdlpar.csv (contains models parameters)
-* GPP_mdlpar.csv
+One file is generated:
 
-Note: Maybe 2 files with parameters are not necessary some cleaning might be a good idea (initialy the code was spread over 2 files explaining the 2 output files)
+* GPPsat_GPP_mdlpar.csv (contains models parameters for both GPPsat and GPP)
 
 # Setup
 
@@ -67,12 +66,6 @@ par(mar=c(5.1,5.1,2.1,2.1))
 plot(Y~X, xlab=x_lab, ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=df)
 # curve(a*exp(b*x), add=T, col="blue")
 }
-
-# pGPP_Tair <- function(X){
-# par(mar=c(5.1,5.1,2.1,2.1))
-# plot(GPP~Tair, xlab="température de l'air (°C)",ylab=expression(paste("PBB mesurée (", mu, mol,m^-2,s^-1,")", sep="")), data=X)
-# # curve(a*exp(b*x), add=T, col="blue")
-# }
 
 ### models fonctions ------------------------------------------------
 
@@ -157,63 +150,10 @@ mdl_indic <- function(Y, pY, mdl){
                    nrmse=nrmse_mdl)
   return(df)
 }
-
-
-get_pGPP <- function(name="Tair", df=df, pred=TRUE){
-  temp <- lGPPsatpar %>%
-    filter(mdl == name)
-  # Vérif nom mdl
-  if(NROW(temp) == 0){
-    cat("souci avec mdl, pas de paramètres trouvés \n")
-  }
-  #Savoir si 1 ou plusieur variable création df ER, X1, X2
-  if(grepl("_", name)){
-    names <- unlist(strsplit(name, "_"))
-    dft <- df[,c("GPP", "PAR", names[1], names[2])]
-  }else{
-    dft <- df[,c("GPP", "PAR", name)]
-  }
-  # Calcul pER en fonction du nb de par
-  if(NCOL(dft) == 3){
-    a <- temp$val[1]
-    b <- temp$val[2]
-    c <- temp$val[3]
-    X1 <- dft[,3]
-    pGPPsat <- a * exp(-((X1-b)/c)^2)
-  }else if(NCOL(dft) == 4){
-    a <- temp$val[1]
-    b <- temp$val[2]
-    c <- temp$val[3]
-    d <- temp$val[4]
-    X1 <- dft[,3]
-    X2 <- dft[,4]
-    pGPPsat <- (a*X2 + d) * exp(-((X1-b)/c)^2)
-  }else{
-    cat("nb de par > 3\n")
-  }
-  # pGPPsat <- as.vector(pGPPsat[,1])
-  # Calcul prediction GPP
-#   m <- nls(GPP ~ a*PAR*pGPPsat/(sqrt(pGPPsat^2+(PAR*a)^2)),
-#              data=df,
-#              start=list(a=-0.05))
-  m <- nls(GPP ~ a*PAR*pGPPsat/(pGPPsat+PAR*a),
-             data=df,
-             start=list(a=0.005))
-  i <- coef(m)[1]
-  pGPP = (i*dft$PAR*pGPPsat/(sqrt(pGPPsat^2+(dft$PAR*i)^2)))
-  # pGPP = (i*dft$PAR*12/(12+dft$PAR*i))
-  # pGPP = (i*dft$PAR*pGPPsat/(pGPPsat+dft$PAR*i))
-  indic <- data.frame(a=i, AIC=AIC(m), BIC=BIC(m),
-                      a_se=coef(summary(m))[,"Std. Error"][1], 
-                      a_pval=coef(summary(m))[,"Pr(>|t|)"][1])
-  if(pred){
-    return(pGPP)
-  }else{
-    return(indic)
-  }
-}
 ```
 
+
+# GPPsat calibration
 
 ## Load and transform data
 
@@ -225,8 +165,8 @@ df <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG
   mutate(date=as.POSIXct(as.character(date)))%>%
   filter(GPP > 0, PAR > 500) # FILTER to use only PAR saturation measurements 
 
-# Averaging by campaign ---------------------------------------------------
-dfm <- df %>%
+# Averaging by campaign after filtering PAR > 500  ---------------------------------------------------
+dfm_f <- df %>%
   mutate(date=as.POSIXct(as.character(date)))%>%
   group_by(ID_camp)%>%
   summarise(
@@ -269,53 +209,54 @@ dfm <- df %>%
   mutate(date=as.POSIXct(as.character(date)))
 ```
 
-# Calculations
+## GPPsat models calculations
+
 ```{r mdl_calc}
 # Non linear version --------------------
 # Tair june
-dmdl_1 <- dfm %>%
+dmdl_1 <- dfm_f %>%
   rename(Y=GPP, X=Tair)%>%
   select(Y, X, WTL, RH_m, IVcov, A, H, M)
 mdl_1 <- mdl_june(dmdl_1, list(a=20, b=50, c=20))
 par_1 <- mdl_param(dmdl_1, mdl_1)
 
 # T5 june
-dmdl_2 <- dfm %>%
+dmdl_2 <- dfm_f %>%
   rename(Y=GPP, X=T5)%>%
   select(Y, X, WTL, RH_m, IVcov, A, H, M)
 mdl_2 <- mdl_june(dmdl_2, list(a=10, b=10, c=10))
 par_2 <- mdl_param(dmdl_2, mdl_2)
 
 # Tair + IVcov june
-dmdl_1_1 <- dfm %>%
+dmdl_1_1 <- dfm_f %>%
   rename(Y=GPP, X=Tair, X2=IVcov)%>%
   select(Y, X, X2, WTL, RH_m, A, H, M)
 mdl_1_1 <- mdl_linjune(dmdl_1_1, list(a=20, b=40, c=20, d=1))
 par_1_1 <- mdl_param(dmdl_1_1, mdl_1_1)
 
 # Tair + H june
-dmdl_1_2 <- dfm %>%
+dmdl_1_2 <- dfm_f %>%
   rename(Y=GPP, X=Tair, X2=H)%>%
   select(Y, X, X2, WTL, RH_m, IVcov, A, M)
 mdl_1_2 <- mdl_linjune(dmdl_1_2, list(a=20, b=40, c=20, d=1))
 par_1_2 <- mdl_param(dmdl_1_2, mdl_1_2)
 
 # Tair + A june
-dmdl_1_3 <- dfm %>%
+dmdl_1_3 <- dfm_f %>%
   rename(Y=GPP, X=Tair, X2=A)%>%
   select(Y, X, X2, WTL, RH_m, IVcov, H, M)
 mdl_1_3 <- mdl_linjune(dmdl_1_3, list(a=20, b=40, c=20, d=1))
 par_1_3 <- mdl_param(dmdl_1_3, mdl_1_3)
 
 # T5 + IVcov june
-dmdl_2_1 <- dfm %>%
+dmdl_2_1 <- dfm_f %>%
   rename(Y=GPP, X=T5, X2=IVcov)%>%
   select(Y, X, X2, WTL, RH_m, A, H, M)
 mdl_2_1 <- mdl_linjune(dmdl_2_1, list(a=10, b=10, c=10, d=1))
 par_2_1 <- mdl_param(dmdl_2_1, mdl_2_1)
 
 # T5 + H june
-dmdl_2_2 <- dfm %>%
+dmdl_2_2 <- dfm_f %>%
   rename(Y=GPP, X=T5, X2=H)%>%
   select(Y, X, X2, WTL, RH_m, IVcov, A, M)
 mdl_2_2 <- mdl_linjune(dmdl_2_2, list(a=10, b=10, c=10, d=1))
@@ -335,6 +276,8 @@ par_2_2 <- mdl_param(dmdl_2_2, mdl_2_2)
 
 ```
 
+##  Models output
+
 ```{r mdl_output}
 mdlls <- c("Tair", "T5", "Tair_IVcov", "Tair_H", "Tair_A", "T5_IVcov", "jT5_H")
 
@@ -345,36 +288,34 @@ colnames(mdlpar) <- c("a", "b", "c", "d","a_se", "b_se", "c_se", "d_se", "a_pval
 res <- data.frame(mdl=mdlls)
 res <- cbind(res, mdlpar)
 
-not <- data.frame(best = c("<-","","<-","<-","","",""))
+not <- data.frame(hglgt = c("<-","","<-","<-","","",""))
 
 best <- cbind(res, not)%>%
-  filter(best == "<-")
+  filter(hglgt == "<-")
 
 result <- res
 result[,-1] <- round(result[,-1],2) # round sauf 1re col
 result <- cbind(result, not)
 ```
 
-## Models
-
-```{r}
-result
-```
-
-## Models sort by R2a
+### Models sort by R2a
 
 ```{r}
 result %>%
-  select(mdl, R2, R2a, rmse, nrmse, aic, bic, best)%>%
+  select(mdl, R2, R2a, rmse, nrmse, aic, bic, hglgt)%>%
   arrange(desc(R2a))
+```
 
+### Models parameters
+
+```{r}
 result %>%
   select(mdl, a, b, c, d, a_se, b_se, c_se, d_se, a_pval, b_pval, c_pval, d_pval)
 ```
 
-# Diagnostic plots {.tabset}
+## GPPsat diagnostic plots {.tabset}
 
-## GPP~aexp-((Tair-b)/c)
+### GPP~aexp-((Tair-b)/c)
 
 ```{r, fig.height=4, eval=T}
 par_1
@@ -397,7 +338,7 @@ plot(resid(mdl_1)~dmdl_1$M, main="vs. M")
 par(mfrow=c(1,1))
 ```
 
-## GPP~aexp-((T5-b)/c)
+### GPP~aexp-((T5-b)/c)
 
 ```{r, fig.height=4}
 par_2
@@ -426,7 +367,7 @@ par(mfrow=c(1,1))
 ```
 
 
-## GPP~(a*H) * exp-((Tair-b)/c)
+### GPP~(a*H) * exp-((Tair-b)/c)
 
 ```{r, fig.height=4, eval=T}
 par_1_2
@@ -439,7 +380,7 @@ par(mfrow=c(1,1))
 
 ```
 
-## GPP~(a*IVcov) * exp-((Tair-b)/c)
+### GPP~(a*IVcov) * exp-((Tair-b)/c)
 
 ```{r, fig.height=4, eval=T}
 par_1_1
@@ -457,7 +398,7 @@ par(mfrow=c(1,1))
 # par(mfrow=c(1,1))
 ```
 
-## GPP~(a*H) * exp-((T5-b)/c)
+### GPP~(a*H) * exp-((T5-b)/c)
 
 ```{r, fig.height=4, eval=T}
 par_2_2
@@ -469,7 +410,7 @@ plt_resmod(dmdl_2_2$Y, predict(mdl_2_2))
 par(mfrow=c(1,1))
 ```
 
-## GPP~(a*IVcov) * exp-((T5-b)/c)
+### GPP~(a*IVcov) * exp-((T5-b)/c)
 
 ```{r, fig.height=4}
 par_2_1
@@ -481,205 +422,9 @@ plt_resmod(dmdl_2_1$Y, predict(mdl_2_1))
 par(mfrow=c(1,1))
 ```
 
-# Figures
+# GPP calibration
 
-```{r, fig.height=8}
-labpar_1 <- format(par_1,  digits=2, nsmall=2)
-labpar_1_1 <- format(par_1_1,  digits=2, nsmall=2)
-labpar_2 <- format(par_2,  digits=2, nsmall=2)
-labpar_1_2 <- format(par_1_2,  digits=2, nsmall=2)
-labpar_2_1 <- format(par_2_1,  digits=2, nsmall=2)
-# labpar_2_3 <- format(par_2_3,  digits=2, nsmall=2)
-
-
-lab11 <- paste(
-  "y = ", labpar_1$a, " * exp(", labpar_1$b, "*Tair)",
-  "\nR² = ", labpar_1$aR2, 
-  "\nRMSE = ", labpar_1$rmse,
-  "\nNRMSE = ", labpar_1$nrmse, " %", sep="")
-lab11_1 <- paste(
-  "y = ", labpar_1_1$a, " * IV + ", labpar_1_1$c ,"exp(", labpar_1_1$b, "*Tair)",
-  "\nR² = ", labpar_1_1$aR2, 
-  "\nRMSE = ", labpar_1_1$rmse,
-  "\nNRMSE = ", labpar_1_1$nrmse, " %", sep="")
-lab21 <- paste0(
-  "y = ", labpar_2$a, " * exp(", labpar_2$b, "*T5)",
-  "\nR² = ", labpar_2$aR2, 
-  "\nRMSE = ", labpar_2$rmse,
-  "\nNRMSE = ", labpar_2$nrmse, " %", sep="")
-lab21_1 <- paste(
-  "y = ", labpar_2_1$a, " * IV + ", labpar_2_1$c ,"exp(", labpar_2_1$b, "*Tair)",
-  "\nR² = ", labpar_2_1$aR2, 
-  "\nRMSE = ", labpar_2_1$rmse,
-  "\nNRMSE = ", labpar_2_1$nrmse, " %", sep="")
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPPsat_T5_mdl_mesmod.pdf"), width=10, height=4)
-par(mfrow=c(1,2))
-plt_mesmod(dmdl_2$Y, predict(mdl_2), mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=.4, y=12, labels=lab21, adj=0)
-plot(resid(mdl_2)~predict(mdl_2), 
-     xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")),
-     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")))
-par(mfrow=c(1,1))
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPPsat_T5IV_mdl_mesmod.pdf"), width=10, height=4)
-par(mfrow=c(1,2))
-plt_mesmod(dmdl_2_1$Y, predict(mdl_2_1), mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=.4, y=12, labels=lab21_1, adj=0)
-plot(resid(mdl_2_1)~predict(mdl_2_1), 
-     xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")),
-     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")))
-par(mfrow=c(1,1))
-# 
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPPsat_T5_mdl_res.pdf"), width=5, height=4)
-par(mfrow=c(1,1), mar=c(4,4.5,.5,.5))
-# plot(resid(mdl_2)~dmdl_1$WTL, main="vs. WTL") 
-# plot(resid(mdl_2)~dmdl_1$RH, main="vs. RH") 
-plot(resid(mdl_2)~dmdl_2$IVcov,
-     xlab="indice de végétation",
-     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep=""))) 
-par(mfrow=c(1,1))
-
-##################### Tair
-
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPPsat_Tair_mesmod.pdf"), width=9, height=8)
-par(mfrow=c(2,2))
-## haut gauche
-plt_mesmod(dmdl_1$Y, predict(mdl_1), mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=1, y=12.5, labels=lab11, adj=0)
-text(x=13, y=2, labels="a", adj=0, cex=2)
-
-## haut droite
-plot(resid(mdl_1)~predict(mdl_1), xlab="", ylab="")
-title(xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
-title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-text(x=13, y=-4, labels="b", adj=0, cex=2)
-
-## bas gauche
-plot(resid(mdl_1)~dmdl_1$IVcov, xlab="", ylab="") 
-title(xlab="indice de végétation", line=2.5)
-title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-text(x=.5, y=-4, labels="c", adj=0, cex=2)
-
-## bas droite
-plot(resid(mdl_1)~dmdl_1$WTL, xlab="", ylab="") 
-title(xlab="Niveau de la nappe (cm)", line=2.5)
-title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-text(x=17, y=-4, labels="d", adj=0, cex=2)
-
-par(mfrow=c(1,1))
-
-##################$ TairIVcov
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPPsat_TairIV_mesmod.pdf"), width=9, height=4)
-par(mfrow=c(1,2))
-## haut gauche
-plt_mesmod(dmdl_1_1$Y, predict(mdl_1_1), mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=1, y=12.5, labels=lab11_1, adj=0)
-text(x=13, y=2, labels="a", adj=0, cex=2)
-
-## haut droite
-plot(resid(mdl_1_1)~predict(mdl_1_1), xlab="", ylab="")
-title(xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
-title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-text(x=12.3, y=-1.65, labels="b", adj=0, cex=2)
-
-## bas gauche
-# plot(resid(mdl_1_1)~dmdl_1_1$IVcov, xlab="", ylab="") 
-# title(xlab="indice de végétation", line=2.5)
-# title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-# text(x=.5, y=-4, labels="c", adj=0, cex=2)
-# 
-# ## bas droite
-# plot(resid(mdl_1_1)~dmdl_1_1$WTL, xlab="", ylab="") 
-# title(xlab="Niveau de la nappe (cm)", line=2.5)
-# title(ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-# text(x=17, y=-4, labels="d", adj=0, cex=2)
-
-par(mfrow=c(1,1))
-
-
-
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPPsat_Tair_mdl_mesmod.pdf"), width=10, height=4)
-par(mfrow=c(1,2))
-plt_mesmod(dmdl_1$Y, predict(mdl_1), mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=.4, y=12, labels=lab11, adj=0)
-plot(resid(mdl_1)~predict(mdl_1), 
-     xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")),
-     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")))
-par(mfrow=c(1,1))
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPPsat_TairIV_mdl_mesmod.pdf"), width=10, height=4)
-par(mfrow=c(1,2))
-plt_mesmod(dmdl_1_1$Y, predict(mdl_1_1), mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=.4, y=12, labels=lab11_1, adj=0)
-plot(resid(mdl_1_1)~predict(mdl_1_1), 
-     xlab=expression(paste("Valeurs prédites (", mu, mol,m^-2,s^-1,")", sep="")),
-     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep="")))
-par(mfrow=c(1,1))
-# 
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPPsat_Tair_mdl_res.pdf"), width=5, height=4)
-par(mfrow=c(1,1), mar=c(4,4.5,.5,.5))
-# plot(resid(mdl_2)~dmdl_1$WTL, main="vs. WTL") 
-# plot(resid(mdl_2)~dmdl_1$RH, main="vs. RH") 
-plot(resid(mdl_1)~dmdl_1$IVcov,
-     xlab="indice de végétation",
-     ylab=expression(paste("Résidus (", mu, mol,m^-2,s^-1,")", sep=""))) 
-par(mfrow=c(1,1))
-# 
-# 
-# cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance", "PPB_1par_mdl_res.pdf"), width=10, height=8)
-# par(mfrow=c(2,2))
-# pmesmod(dmdl_1, mdl_1)
-# text(x=1, y=8, labels=lab11, adj=0)
-# plot(resid(mdl_1)~dmdl_1$H, main="vs. H") 
-# pmesmod(dmdl_2, mdl_2)
-# text(x=1, y=8, labels=lab21, adj=0)
-# plot(resid(mdl_2)~dmdl_1$RH_m, main="vs. TES") 
-# par(mfrow=c(1,1))
-# 
-# lab11 <- paste(
-#   "y = (", labpar_1_2$a, " * H + ", labpar_1_2$c, ") * exp(", labpar_1_2$b, "*Tair)",
-#   "\nR² = ", labpar_1_2$aR2, 
-#   "\nNRMSE = ", labpar_1_2$nrmse, sep="")
-# # lab21 <- paste0(
-# #   "y = (", labpar_2_3$a, " * TES + ", labpar_2_3$c, ") * exp(", labpar_2_3$b, "*T5)",
-# #   "\nR² = ", labpar_2_3$aR2, 
-# #   "\nNRMSE = ", labpar_2_3$nrmse)
-# # 
-# cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance", "PPB_2par_mdl.pdf"), width=5, height=4)
-# par(mfrow=c(1,1))
-# pmesmod(dmdl_1_2, mdl_1_2)
-# text(x=1, y=8, labels=lab11, adj=0)
-# # plot(resid(mdl_1)~dmdl_1$H, main="vs. H") 
-# # pmesmod(dmdl_2_3, mdl_2_3)
-# # text(x=1, y=18, labels=lab21, adj=0)
-# # # plot(resid(mdl_2)~dmdl_1$RH_m, main="vs. TES") 
-# par(mfrow=c(1,1))
-
-```
-
-# Data
-```{r sav_mdl_par}
-select(best, -best)
-
-export <- res %>%
-  select(mdl, a, b, c, d)
-
-write.csv(export, file.path(outpth, "GPPsat_mdlpar.csv"), quote=F, row.names=F)
-```
-
-# Non sat
-
-TODO put cb_GPP_avg_2.Rmd there
-```{r}
-lGPPsatpar <- export %>%
-  gather(par, value, 2:5)%>%
-  do(na.omit(.))%>%
-  arrange(mdl, par)
-```
+## Load and transform data
 
 ```{r}
 # /!\ 2 versions /!\
@@ -702,6 +447,7 @@ dfm <- df %>%
   group_by(ID_camp)%>%
   summarise(date=min(date, na.rm=T),
             GPP=mean(GPP, na.rm=T),
+            PAR=mean(PAR, na.rm=T),
             Tair=mean(Tair, na.rm=T),
             T5=mean(T5, na.rm=T),
             PAR=mean(PAR, na.rm=T),
@@ -717,32 +463,58 @@ dfm <- as.data.frame(dfm)
 # Résultats légèrement différent de ceux de la thèse car pour cette dernière j'avais enlevé toutes les lignes contenant des NA sur les variables qui m'intéressait avant de faire les moyennes (do(na.omit(.)))...
 ```
 
-```{r}
-# Liste des modèles à tester
-GPP_par <- c("Tair", "T5", "Tair_H", "Tair_IVcov", "T5_IVcov")
+## GPP calculations
 
-# Calcul prediction NEE
+```{r, message=FALSE}
+# Get models parameters
+GPPsatpar <- res %>%
+  select(mdl, a, b, c, d)
+
+GPPsatpar$mdl <- paste0("exp-", GPPsatpar$mdl)
+
+mdl_list <- c("exp-Tair", "exp-T5", "exp-Tair_H", "exp-Tair_IVcov", "exp-T5_IVcov")
+
 GPPpred <- data.frame()
+# predGPP <- data.frame()
 GPPpar <- data.frame()
-for (i in GPP_par){
-    # mdl pred
-    pGPP <- get_pGPP(i, dfm, pred = T) # get prediction
-    temp <- data.frame(GPP=dfm$GPP, mdl=i, pGPP=pGPP)
-    GPPpred <- rbind(GPPpred,temp)
-    # mdl par
-    par <- get_pGPP(i, dfm, pred = F) # get model param
-    tmp <- cbind(mdl=i, par)
-    # tmp <- data.frame(mdl=i, a=par)
-    GPPpar <- rbind(GPPpar, tmp)
+for (j in mdl_list){
+    # Setup
+    dat <- prd_seldat(df=dfm, flux = "GPP", id_eq = j) # Select data
+    par <- prd_gpar(id_eq = j, dfparam = GPPsatpar) # Select parameter
+    # GPPsat calc
+    pGPPsat <- gpGPPsat(df=prd_prpdat(dat), p=par) # prep data and calc pred
+    # GPP calc
+    m <- nls(GPP ~ a*PAR*pGPPsat/(pGPPsat+PAR*a),
+                 data=dfm,
+                 start=list(a=0.005))
+    i <- coef(m)[1] # par
+    pGPP = (i*dfm$PAR*pGPPsat/(sqrt(pGPPsat^2+(dfm$PAR*i)^2)))
+    indic <- data.frame(mdl=j, i=i, AIC=AIC(m), BIC=BIC(m),
+                      a_se=coef(summary(m))[,"Std. Error"][1], 
+                      a_pval=coef(summary(m))[,"Pr(>|t|)"][1])
+    
+    # Output
+    ## GPPsat
+    tpGPPsat <- data.frame(GPP=dfm$GPP, mdl=j, pGPPsat=pGPPsat, pGPP=pGPP)
+    GPPpred <- rbind(GPPpred,tpGPPsat) 
+    GPPpar <- rbind(GPPpar, indic) # modelGPPpar
 }
 
+GPPpar$mdl <- as.character(GPPpar$mdl)
+GPPpred$mdl <- as.character(GPPpred$mdl)
+
+# all parameter values from models
+allpar <- full_join(GPPsatpar, GPPpar[,1:2])
+
 # Export paramètre mdl GPP
-write.csv(GPPpar[,1:2], file.path(outpth, "GPP_mdlpar.csv"), quote=F, row.names=F)
+write.csv(allpar, file.path(outpth, "GPPsat_GPP_mdlpar.csv"), quote=F, row.names=F)
 ```
 
-# Results GPP {.tabset}
+## Model output
 
-```{r}
+### GPPsat models (quality indicator and parameter)
+
+```{r, message=F}
 GPPind <- GPPpar
 # Tableau resultats modèles
 ldf <- GPPpred %>%
@@ -756,10 +528,12 @@ ldf[,2:10] <- round(ldf[,2:10], 2)
 ldf
 ```
 
-## Tair
+## GPP diagnostic plots {.tabset}
+
+### Tair
 
 ```{r, fig.width=8, fig.height=4}
-dat <- filter(GPPpred, mdl == "Tair")
+dat <- filter(GPPpred, mdl == "exp-Tair")
 par(mfrow=c(1,2))
 plt_mesmod(dat$GPP, dat$pGPP, mes_label = "measured GPP", mod_label = "modelled GPP")
 plt_resmod(dat$GPP, dat$pGPP)
@@ -767,10 +541,10 @@ par(mfrow=c(1,1))
 mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
 ```
 
-## Tair + IVcov
+### Tair + IVcov
 
 ```{r, fig.width=8, fig.height=4}
-dat <- filter(GPPpred, mdl == "Tair_IVcov")
+dat <- filter(GPPpred, mdl == "exp-Tair_IVcov")
 par(mfrow=c(1,2))
 plt_mesmod(dat$GPP, dat$pGPP, mes_label = "measured GPP", mod_label = "modelled GPP")
 plt_resmod(dat$GPP, dat$pGPP)
@@ -778,10 +552,10 @@ par(mfrow=c(1,1))
 mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
 ```
 
-## T5
+### T5
 
 ```{r, fig.width=8, fig.height=4}
-dat <- filter(GPPpred, mdl == "T5")
+dat <- filter(GPPpred, mdl == "exp-T5")
 par(mfrow=c(1,2))
 plt_mesmod(dat$GPP, dat$pGPP, mes_label = "measured GPP", mod_label = "modelled GPP")
 plt_resmod(dat$GPP, dat$pGPP)
@@ -790,10 +564,10 @@ iT5 <- mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
 iT5
 ```
 
-## T5 + IVcov
+### T5 + IVcov
 
 ```{r, fig.width=8, fig.height=4}
-dat <- filter(GPPpred, mdl == "T5_IVcov")
+dat <- filter(GPPpred, mdl == "exp-T5_IVcov")
 par(mfrow=c(1,2))
 plt_mesmod(dat$GPP, dat$pGPP, mes_label = "measured GPP", mod_label = "modelled GPP")
 plt_resmod(dat$GPP, dat$pGPP)
@@ -801,63 +575,3 @@ par(mfrow=c(1,1))
 iT5_IV <- mdl_indic(dat$GPP, dat$pGPP, mdl=dat$mdl)
 iT5_IV
 ```
-
-
-# Figures
-
-```{r, fig.height=8, result="hide"}
-dat_Ta <- filter(GPPpred, mdl == "Tair")
-labf <- format(mdl_indic(dat_Ta$GPP, dat_Ta$pGPP, mdl=dat_Ta$mdl), digits=2, nsmall=2)
-lab_Ta <- paste0(
-  "y = ", labf$a, " * exp(", labf$b, "*T5)",
-  "\nR² = ", labf$aR2, 
-  "\nRMSE = ", labf$rmse,
-  "\nNRMSE = ", labf$nrmse, " %", sep="")
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPP_Tair_mdl_mesmod.pdf"), width=10, height=4)
-par(mfrow=c(1,2))
-plt_mesmod(dat_Ta$GPP, dat_Ta$pGPP, mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=.4, y=12, labels=lab_Ta, adj=0)
-plt_resmod(dat_Ta$GPP, dat_Ta$pGPP)
-par(mfrow=c(1,1))
-```
-
-```{r}
-dat_TaIV <- filter(GPPpred, mdl == "Tair_IVcov")
-labf <- format(mdl_indic(dat_TaIV$GPP, dat_TaIV$pGPP, mdl=dat_TaIV$mdl), digits=2, nsmall=2)
-lab_TaIV <- paste0(
-  "y = ", labf$a, " * exp(", labf$b, "*T5)",
-  "\nR² = ", labf$aR2, 
-  "\nRMSE = ", labf$rmse,
-  "\nNRMSE = ", labf$nrmse, " %", sep="")
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPP_TairIV_mdl_mesmod.pdf"), width=10, height=4)
-par(mfrow=c(1,2))
-
-plt_mesmod(dat_TaIV$GPP, dat_TaIV$pGPP, mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=.4, y=12, labels=lab_TaIV, adj=0)
-plt_resmod(dat_TaIV$GPP, dat_TaIV$pGPP)
-par(mfrow=c(1,1))
-```
-
-```{r}
-# Fig Tair res + Tair IV res
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/GPP", "GPP_mdl_mesmod_sig.pdf"), width=9, height=8)
-par(mfrow=c(2,2))
-
-# Haut
-plt_mesmod(dat_Ta$GPP, dat_Ta$pGPP, mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=.4, y=13, labels=lab_Ta, adj=0)
-text(x=14, y=1, labels="a", adj=0, cex=2)
-plt_resmod(dat_Ta$GPP, dat_Ta$pGPP)
-text(x=14, y=-3.7, labels="b", adj=0, cex=2)
-# Bas
-plt_mesmod(dat_TaIV$GPP, dat_TaIV$pGPP, mes_label = "PPB mesurée", mod_label = "PPB modélisée")
-text(x=.4, y=13, labels=lab_TaIV, adj=0)
-text(x=14, y=1, labels="c", adj=0, cex=2)
-plt_resmod(dat_TaIV$GPP, dat_TaIV$pGPP)
-text(x=14, y=-1.6, labels="d", adj=0, cex=2)
-
-par(mfrow=c(1,1))
-```
-
