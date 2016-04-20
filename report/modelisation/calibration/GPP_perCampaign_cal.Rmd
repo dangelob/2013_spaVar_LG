@@ -488,7 +488,8 @@ for (j in mdl_list){
                  data=dfm,
                  start=list(a=0.005))
     i <- coef(m)[1] # par
-    pGPP = (i*dfm$PAR*pGPPsat/(sqrt(pGPPsat^2+(dfm$PAR*i)^2)))
+    # pGPP = (i*dfm$PAR*pGPPsat/(sqrt(pGPPsat^2+(dfm$PAR*i)^2)))
+    pGPP = (i*dfm$PAR*pGPPsat/(pGPPsat+dfm$PAR*i))
     indic <- data.frame(mdl=j, i=i, AIC=AIC(m), BIC=BIC(m),
                       a_se=coef(summary(m))[,"Std. Error"][1], 
                       a_pval=coef(summary(m))[,"Pr(>|t|)"][1])
@@ -512,7 +513,7 @@ write.csv(allpar, file.path(outpth, "GPPsat_GPP_mdlpar.csv"), quote=F, row.names
 
 ## Model output
 
-### GPPsat models (quality indicator and parameter)
+### GPP models (quality indicator and parameter)
 
 ```{r, message=F}
 GPPind <- GPPpar
