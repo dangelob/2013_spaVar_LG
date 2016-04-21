@@ -184,3 +184,27 @@ p
 # Save plot
 ggsave("GPP_BdCitp_TaIVcov.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
 ```
+
+## GPP~aexp(T5-b/c)²
+
+```{r}
+# Select model
+dat <- filter(prediction, mdl == "exp-T5")#%>%
+# Plot interpolation
+p <- plt_interp(dat)
+p
+# Save plot
+ggsave("GPP_BdCitp_T5.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## GPP~(a*IV+d)exp(T5-b/c)²
+
+```{r}
+# Select model
+dat <- filter(prediction, mdl == "exp-T5_IVcov")#%>%
+# Plot interpolation
+p <- plt_interp(dat)
+p
+# Save plot
+ggsave("GPP_BdCitp_T5IVcov.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
+```
