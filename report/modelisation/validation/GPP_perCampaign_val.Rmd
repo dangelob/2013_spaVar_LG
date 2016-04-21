@@ -11,7 +11,7 @@ output:
     toc_depth: 2
 ---
 
-<h3><a href="../CB_toc.html"> Carbon balance </a></h3>
+<h3><a href="../mod_toc.html"> Modélisation </a></h3>
 
 ***
 
