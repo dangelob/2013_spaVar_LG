@@ -51,9 +51,6 @@ library(scales)
 # Folder to save graphes
 savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/interpolation"
 
-# Folder to save data treatement
-outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
-
 # allow wider tables and graphes in html output
 options(width = 100)
 knitr::opts_chunk$set(comment=NA,warning = FALSE)
