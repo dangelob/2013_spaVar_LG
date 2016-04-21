@@ -60,7 +60,31 @@ knitr::opts_chunk$set(comment=NA,warning = FALSE)
 
 # Load custom color set
 source("../../../src/report/custom_colors.R")
+source("../../../src/report/custom_themes.R")
 # source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_themes.R")
+```
+
+```{r ld_plot_custom_fn}
+# X axis setup
+x <- seq(as.Date("2013-03-01"), as.Date("2015-03-31"), by="2 months")
+labels <- date_format("%b")(x)
+breaks <- seq(as.POSIXct("2013-03-01"), as.POSIXct("2015-03-31"), by="2 months")
+
+# plot function
+plt_interp <- function(df){
+  p <- ggplot(dfp, aes(x=date, y=ER))+
+  geom_line(data = dat, aes(x=timestamp, y=pER), color=gris)+
+  geom_point(color=drouge, size=3)+
+  ylim(0,22)+
+  geom_linerange(data = dfp, aes(x=date, ymin=ER-ER_sd, ymax=ER+ER_sd), color=drouge)+
+  labs(y=expression(paste("RE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="2013-2014")+
+  scale_x_datetime(breaks=breaks, labels = labels,limits=range(breaks))+
+  theme_interp
+  return(p)
+}
+
+
 ```
 
 ## Load data
@@ -125,36 +149,84 @@ as.data.frame(output_yr)
 ```
 
 # Graphes {.tabset}
-```{r}
-# X axis setup
-x <- seq(as.Date("2013-03-01"), as.Date("2015-03-31"), by="2 months")
-labels <- date_format("%b")(x)
-breaks <- seq(as.POSIXct("2013-03-01"), as.POSIXct("2015-03-31"), by="2 months")
-```
 
 ## ER~aexp(bTair)
 
 ```{r}
+# Select model
 dat <- filter(prediction, mdl == "exp-Tair")#%>%
-
-p1 <-  ggplot(dfp, aes(x=date, y=ER))+
-  geom_line(data = dat, aes(x=timestamp, y=pER), color=gris)+
-  geom_point(color=drouge, size=3)+
-  annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-1", size=5)+
-  ylim(0,22)+
-  geom_linerange(data = dfp, aes(x=date, ymin=ER-ER_sd, ymax=ER+ER_sd), color=drouge)+
-  labs(y=expression(paste("RE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="2013-2014")+
-  scale_x_datetime(breaks=breaks, labels = labels,limits=range(breaks))+
-  theme_classic()+
-   theme(axis.title=element_text(size=14), # DIAPO
-        axis.text=element_text(size=13),
-        axis.title.x=element_blank(),
-        plot.margin=unit(c(.1, .1, .1, .1), "lines"),
-        panel.grid.major.x = element_blank(), # DIAPO
-        panel.grid.major.y = element_line(size=.05, colour="gray95"),
-        panel.grid.minor = element_blank() # DIAPO
-  )
-p1
-ggsave("ER_BdCitp_Ta.pdf", plot=p1, path=savpth, width=7, height=3, cairo_pdf)
+# Plot interpolation
+rm(p)
+p <- plt_interp(dat)+
+  annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-1", size=5)
+p
+# Save plot
+ggsave("ER_BdCitp_Ta.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
 ```
 
+## ER~(aIV+c)exp(bTair)
+
+```{r}
+# Select model
+dat <- filter(prediction, mdl == "exp-Tair_IVcov")#%>%
+# Plot interpolation
+rm(p)
+p <- plt_interp(dat)+
+  annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-2", size=5)
+p
+# Save plot
+ggsave("ER_BdCitp_TaIVcov.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## ER~(aH+c)exp(bTair)
+
+```{r}
+# Select model
+dat <- filter(prediction, mdl == "exp-Tair_H")#%>%
+# Plot interpolation
+p <- plt_interp(dat)+
+  annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-3", size=5)
+p
+# Save plot
+ggsave("ER_BdCitp_TaH.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## ER~aexp(bT5)
+
+```{r}
+# Select model
+dat <- filter(prediction, mdl == "exp-T5")#%>%
+# Plot interpolation
+p <- plt_interp(dat)#+
+  # annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-1", size=5)
+p
+# Save plot
+ggsave("ER_BdCitp_T5.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## ER~(aIV+c)exp(bT5)
+
+```{r}
+# Select model
+dat <- filter(prediction, mdl == "exp-T5_IVcov")#%>%
+# Plot interpolation
+p <- plt_interp(dat)#+
+  # annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-2", size=5)
+p
+# Save plot
+ggsave("ER_BdCitp_T5IVcov.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
+```
+
+## ER~(aH+c)exp(bT5)
+
+```{r}
+# Select model
+dat <- filter(prediction, mdl == "exp-T5_H")#%>%
+# Plot interpolation
+rm(p)
+p <- plt_interp(dat)#+
+  # annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-3", size=5)
+p
+# Save plot
+ggsave("ER_BdCitp_T5H.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
+```
