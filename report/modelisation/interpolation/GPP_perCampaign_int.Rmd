@@ -151,10 +151,6 @@ output_yr <- output %>%
   spread(yr, pGPP_gC)%>%
   mutate(all =(`2013`+`2014`)/2)
 as.data.frame(output_yr)
-
-# bdcGPP <- output_yr %>%
-#   gather("year", "GPP", 2:4)
-
 ```
 
 # Graphs {.tabset}

@@ -83,8 +83,6 @@ plt_interp <- function(df){
   theme_interp
   return(p)
 }
-
-
 ```
 
 ## Load data
@@ -142,10 +140,6 @@ output_yr <- output %>%
   spread(yr, pER_gC)%>%
   mutate(all =(`2013`+`2014`)/2)
 as.data.frame(output_yr)
-
-# bdcER <- output_yr %>%
-#   gather("year", "ER", 2:4)
-
 ```
 
 # Graphs {.tabset}
