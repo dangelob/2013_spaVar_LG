@@ -93,7 +93,7 @@ for (j in mdl_ls){
     dat <- prd_seldat(df=dfc, id_eq = j) # Select data
     par <- prd_gpar(id_eq = j, dfparam = ERpar) # Select parameter
     var <- prd_prpdat(dat) # response variable only
-    pER <- gpER(df=prd_prpdat(dat), p=par) # prep data and calc pred
+    pER <- gpER(df=var, p=par) # prep data and calc pred
     tpER <- data.frame(mdl=j, timestamp=dfc$timestamp, pER=pER)
     prediction <- rbind(prediction,tpER)
 }
