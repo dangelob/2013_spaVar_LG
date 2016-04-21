@@ -38,13 +38,7 @@ options(width = 200)
 ```
 
 ```{r load_mdl_par}
-ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")%>%
-  mutate(mdl=paste0("exp-",mdl)) # RUSTINE
-
-# lERpar <- ERpar %>%
-#   gather(par, value, 2:4)%>%
-#   do(na.omit(.))%>%
-#   arrange(mdl, par)
+ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
 ```
 
 
@@ -92,7 +86,8 @@ predER <- data.frame()
 for (j in ER_par){
     dat <- prd_seldat(df=df, flux = "ER", id_eq = j) # Select data
     par <- prd_gpar(id_eq = j, dfparam = ERpar) # Select parameter
-    pER <- gpER(df=prd_prpdat(dat), p=par) # prep data and calc pred
+    var <- prd_prpdat(dat[,2:NCOL(dat), drop=F]) # response variable only
+    pER <- gpER(df=var, p=par) # prep data and calc pred
     tpER <- data.frame(ER=df$ER, mdl=j, loc=df$localisation, pER=pER)
     predER <- rbind(predER,tpER)
 }

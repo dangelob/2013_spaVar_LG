@@ -92,7 +92,8 @@ for (j in mdl_list){
     # GPPsat calc
     dat <- prd_seldat(df=dfm, flux = "GPP", id_eq = j) # Select data
     par <- prd_gpar(id_eq = j, dfparam = GPPsatpar) # Select parameter
-    pGPPsat <- gpGPPsat(df=prd_prpdat(dat), p=par) # prep data and calc pred
+    var <- prd_prpdat(dat[,2:NCOL(dat), drop=F]) # response variable only
+    pGPPsat <- gpGPPsat(df=var, p=par) # prep data and calc pred
     # GPP calc
     par_i <- prd_gpar(id_eq = j, dfparam = GPPpar) # Select parameter
     pGPP = (par_i*dfm$PAR*pGPPsat/(pGPPsat+dfm$PAR*par_i))
