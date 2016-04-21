@@ -279,7 +279,7 @@ par_2_2 <- mdl_param(dmdl_2_2, mdl_2_2)
 ##  Models output
 
 ```{r mdl_output}
-mdlls <- c("Tair", "T5", "Tair_IVcov", "Tair_H", "Tair_A", "T5_IVcov", "jT5_H")
+mdlls <- c("exp-Tair", "exp-T5", "exp-Tair_IVcov", "exp-Tair_H", "exp-Tair_A", "exp-T5_IVcov", "exp-T5_H")
 
 par <- c(par_1, par_2, par_1_1, par_1_2, par_1_3, par_2_1, par_2_2)
 mdlpar <- data.frame(matrix(unlist(par), nrow=length(mdlls), byrow=T))
@@ -470,7 +470,7 @@ dfm <- as.data.frame(dfm)
 GPPsatpar <- res %>%
   select(mdl, a, b, c, d)
 
-GPPsatpar$mdl <- paste0("exp-", GPPsatpar$mdl)
+# GPPsatpar$mdl <- paste0("exp-", GPPsatpar$mdl)
 
 mdl_list <- c("exp-Tair", "exp-T5", "exp-Tair_H", "exp-Tair_IVcov", "exp-T5_IVcov")
 
