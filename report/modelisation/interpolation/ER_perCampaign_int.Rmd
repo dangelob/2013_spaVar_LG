@@ -148,7 +148,7 @@ as.data.frame(output_yr)
 
 ```
 
-# Graphes {.tabset}
+# Graphs {.tabset}
 
 ## ER~aexp(bTair)
 

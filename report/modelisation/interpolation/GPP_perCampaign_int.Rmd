@@ -157,7 +157,7 @@ as.data.frame(output_yr)
 
 ```
 
-# Graphes {.tabset}
+# Graphs {.tabset}
 
 ## GPP~aexp(Tair-b/c)²
 
