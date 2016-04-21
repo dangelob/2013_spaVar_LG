@@ -7,5 +7,14 @@ output:
 ---
 
 # Modelisation
-## Test
-### <a href="modelisation.html"> tests </a>
+
+## Calibration
+### <a href="calibration/ER_perCampaign_cal.html"> ER </a>
+### <a href="calibration/GPP_perCampaign_cal.html"> GPP </a>
+### <a href="calibration/ch4_perCampaign_cal.html"> CH4 </a>
+## Validation
+### <a href="validation/ER_perCampaign_val.html"> ER </a>
+### <a href="validation/GPP_perCampaign_val.html"> GPP </a>
+### <a href="validation/ch4_perCampaign_val.html"> CH4 </a>
+## Interpolation
+WIP
