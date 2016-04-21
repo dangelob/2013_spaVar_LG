@@ -1,0 +1,170 @@
+---
+title: "GPP interpolation (avg/campaign)"
+author: "Benoît D'ANGELO"
+date: "21 avril 2016"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 3
+    fig_width: 7
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+---
+
+<h3><a href="../mod_toc.html"> Calibration </a></h3>
+***
+
+# Introduction
+
+## Objectives
+
+Calculate the GPP fluxes interpolation across the measurement year
+
+## Output
+
+One file is generated:
+
+* prediction_GPP.csv (contains GPP interpolated fluxes for different models)
+
+# Setup
+
+## Load packages and set paths
+
+```{r ld_pckg, message=FALSE}
+# File name : /2013_spavar_LG/report/modelisation/calibration/GPP_perCampaign_int.Rmd
+rm(list=ls(all=TRUE)) # Clean start
+
+# Homemade packages (see "Howto" page to install them)
+library(bdphdtoolbox)     # personnal toolbox
+
+# CRAN packages
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(scales)
+
+# Folder to save graphes
+savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/interpolation"
+
+# Folder to save data treatement
+outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+
+# allow wider tables and graphes in html output
+options(width = 100)
+knitr::opts_chunk$set(comment=NA,warning = FALSE)
+
+# Load custom color set
+source("../../../src/report/custom_colors.R")
+# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
+```
+
+## Load data
+
+```{r ld_data_continuous}
+# Load CONTINOUS DATA treated data (generated with gather_interpol_data.R)
+dfc <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/env_var_interp.csv")%>%
+  mutate(timestamp=as.POSIXct(as.character(timestamp)))
+```
+
+```{r ld_data_ponctual}
+# Load PONCTUAL DATA treated data (generated with getClean_fluxesFC)
+# Campaign average
+dfp <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC_avg.csv")%>%
+  mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
+  mutate(date=as.POSIXct(as.character(date)))
+```
+
+```{r load_mdl_par}
+# Load models parameters
+GPPallpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/GPPsat_GPP_mdlpar.csv")
+GPPsatpar <- GPPallpar%>%
+  select(-i)
+GPPpar <- GPPallpar%>%
+  select(mdl, i)
+```
+
+# Calculations
+```{r mdl_calc}
+mdl_ls <- c("exp-Tair", "exp-T5", "exp-Tair_H", "exp-Tair_IVcov", "exp-T5_IVcov")
+
+prediction <- data.frame()
+for (j in mdl_ls){
+    # Setup
+    # GPPsat calc
+    dat <- prd_seldat(df=dfc, id_eq = j) # Select data
+    par <- prd_gpar(id_eq = j, dfparam = GPPsatpar) # Select parameter
+    var <- prd_prpdat(dat) # response variable only
+    pGPPsat <- gpGPPsat(df=var, p=par) # prep data and calc pred
+    # GPP calc
+    par_i <- prd_gpar(id_eq = j, dfparam = GPPpar) # Select parameter
+    pGPP = (par_i*dfc$PAR*pGPPsat/(pGPPsat+dfc$PAR*par_i))
+    # Output
+    ## GPPsat
+    tpGPPsat <- data.frame(mdl=j, timestamp=dfc$timestamp, pGPPsat=pGPPsat, pGPP=pGPP)
+    prediction <- rbind(prediction,tpGPPsat) 
+}
+
+prediction$timestamp <- as.POSIXct(prediction$timestamp, format="%Y-%m-%d %H:%M:%S")
+```
+
+```{r, cumulated_flux}
+# Convertion fact from umol.m2.s1 to gC.m2.hour
+cfA_hr <- (3600)*1e-6*12
+
+output <- prediction %>%
+  mutate(yr = ifelse(timestamp <= as.POSIXct("2014-02-19 12:00:00", format="%Y-%m-%d %H:%M:%S"), "2013", "2014"))%>%
+  group_by(mdl, yr)%>%
+  mutate(pGPP_gC = pGPP*cfA_hr) %>% # conversion en gC.m2.h
+  summarise(pGPP_gC = sum(pGPP_gC, na.rm=T))%>%
+  mutate(pGPP_gC = pGPP_gC*365/362) # Correction car années de 362 jours
+
+output_yr <- output %>%
+  filter(yr %in% c(2013, 2014))%>%
+  select(mdl, pGPP_gC, yr)%>%
+  spread(yr, pGPP_gC)%>%
+  mutate(all =(`2013`+`2014`)/2)
+as.data.frame(output_yr)
+
+# bdcGPP <- output_yr %>%
+#   gather("year", "GPP", 2:4)
+
+```
+
+# Graphes {.tabset}
+```{r}
+# X axis setup
+x <- seq(as.Date("2013-03-01"), as.Date("2015-03-31"), by="2 months")
+labels <- date_format("%b")(x)
+breaks <- seq(as.POSIXct("2013-03-01"), as.POSIXct("2015-03-31"), by="2 months")
+```
+
+## GPP~aexp(bTair)
+
+```{r}
+dat <- filter(prediction, mdl == "exp-Tair")#%>%
+
+p1 <-  ggplot(dfp, aes(x=date, y=GPP))+
+  geom_line(data = dat, aes(x=timestamp, y=pGPP), color=gris)+
+  geom_point(color=drouge, size=3)+
+  annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="PPB-1", size=5)+
+  geom_linerange(data = dfp, aes(x=date, ymin=GPP-GPP_sd, ymax=GPP+GPP_sd), color=drouge)+
+  labs(y=expression(paste("PPB modélisée (", mu, mol,m^-2,s^-1,")", sep="")), x="")+
+  scale_x_datetime(breaks=breaks, labels = labels,limits=range(breaks))+
+  theme_classic()+
+   theme(axis.title=element_text(size=14), # DIAPO
+        axis.text=element_text(size=13),
+        axis.title.x=element_blank(),
+        plot.margin=unit(c(.1, .1, .1, .1), "lines"),
+        panel.grid.major.x = element_blank(), # DIAPO
+        panel.grid.major.y = element_line(size=.05, colour="gray95"),
+        panel.grid.minor = element_blank() # DIAPO
+  )
+p1
+ggsave("GPP_BdCitp_Ta.pdf", plot=p1, path=savpth, width=7, height=3, cairo_pdf)
+```
+
