@@ -30,15 +30,12 @@ WIP
 
 ## <a href="modelisation/mod_toc.html"> Modélisation </a>
 ### Calibration
-#### <a href="modelisation/calibration/ER_perCampaign_cal.html"> ER </a>
-#### <a href="modelisation/calibration/GPP_perCampaign_cal.html"> GPP </a>
-#### <a href="modelisation/calibration/ch4_perCampaign_cal.html"> CH4 </a>
+#### <a href="modelisation/calibration/ER_perCampaign_cal.html"> ER </a> - <a href="modelisation/calibration/GPP_perCampaign_cal.html"> GPP </a> - <a href="modelisation/calibration/ch4_perCampaign_cal.html"> CH4 </a>
 ### Validation
-#### <a href="modelisation/validation/ER_perCampaign_val.html"> ER </a>
-#### <a href="modelisation/validation/GPP_perCampaign_val.html"> GPP </a>
-#### <a href="modelisation/validation/ch4_perCampaign_val.html"> CH4 </a>
+#### <a href="modelisation/validation/ER_perCampaign_val.html"> ER </a> - <a href="modelisation/validation/GPP_perCampaign_val.html"> GPP </a> - <a href="modelisation/validation/ch4_perCampaign_val.html"> CH4 </a>
 ### Interpolation
-WIP
+#### <a href="modelisation/interpolation/ER_perCampaign_int.html"> ER </a> - <a href="modelisation/interpolation/GPP_perCampaign_int.html"> GPP </a> - <a href="modelisation/interpolation/ch4_perCampaign_int.html"> CH4 </a>
+
 
 ## Part V : Carbon balance
 #### <a href="carbonbalance/definitions.html"> definitions/introduction </a>

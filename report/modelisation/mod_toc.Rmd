@@ -17,4 +17,6 @@ output:
 ### <a href="validation/GPP_perCampaign_val.html"> GPP </a>
 ### <a href="validation/ch4_perCampaign_val.html"> CH4 </a>
 ## Interpolation
-WIP
+### <a href="interpolation/ER_perCampaign_int.html"> ER </a>
+### <a href="interpolation/GPP_perCampaign_int.html"> GPP </a>
+### <a href="interpolation/ch4_perCampaign_int.html"> CH4 </a>
