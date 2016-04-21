@@ -47,19 +47,22 @@ library(tidyr)
 library(ggplot2)
 library(knitr)
 library(scales)
+library(rprojroot)  # allow easier relative path
+
+# Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
 
 # Folder to save graphes
-savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/interpolation"
+savpth <- file.path(root, "graphs", "carbonbalance", "ecosyst", "interpolation")
 
 # allow wider tables and graphes in html output
 options(width = 100)
 knitr::opts_chunk$set(comment=NA,warning = FALSE)
 
 # Load custom color set
-source("../../../src/report/custom_colors.R")
-source("../../../src/report/custom_themes.R")
-# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
-# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_themes.R")
+source(file.path(root, "src", "report", "custom_colors.R"))
+source(file.path(root, "src", "report", "custom_themes.R"))
 ```
 
 ```{r ld_plot_custom_fn}
@@ -86,21 +89,21 @@ plt_interp <- function(df){
 
 ```{r ld_data_continuous}
 # Load CONTINOUS DATA treated data (generated with gather_interpol_data.R)
-dfc <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/env_var_interp.csv")%>%
+dfc <- read.csv(file.path(root, "data","processed", "env_var_interp.csv"))%>%
   mutate(timestamp=as.POSIXct(as.character(timestamp)))
 ```
 
 ```{r ld_data_ponctual}
 # Load PONCTUAL DATA treated data (generated with getClean_fluxesFC)
 # Campaign average
-dfp <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_fluxesFC_avg.csv")%>%
+dfp <- read.csv(file.path(root, "data","processed", "cl_fluxesFC_avg.csv"))%>%
   mutate(timestamp=as.POSIXct(as.character(timestamp)))%>%
   mutate(date=as.POSIXct(as.character(date)))
 ```
 
 ```{r load_mdl_par}
 # Load models parameters
-ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
+ERpar <- read.csv(file.path(root, "data","processed", "ER_mdlpar.csv"))
 ```
 
 # Calculations
