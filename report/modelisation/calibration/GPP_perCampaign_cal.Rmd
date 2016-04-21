@@ -481,8 +481,9 @@ for (j in mdl_list){
     # Setup
     dat <- prd_seldat(df=dfm, flux = "GPP", id_eq = j) # Select data
     par <- prd_gpar(id_eq = j, dfparam = GPPsatpar) # Select parameter
+    var <- prd_prpdat(dat[,2:NCOL(dat), drop=F])
     # GPPsat calc
-    pGPPsat <- gpGPPsat(df=prd_prpdat(dat), p=par) # prep data and calc pred
+    pGPPsat <- gpGPPsat(df=var, p=par) # prep data and calc pred
     # GPP calc
     m <- nls(GPP ~ a*PAR*pGPPsat/(pGPPsat+PAR*a),
                  data=dfm,

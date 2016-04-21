@@ -204,7 +204,7 @@ par_2_2_1 <- mdl_param(dmdl_2_2_1, mdl_2_2_1)
 ```{r mdl_output}
 # Resume
 
-mdlls <- c("Tair", "Tair_pwr", "T5", "Tair_IVcov", "Tair_H","Tair_RH", "T5_IVcov", "T5_H", "T5_RH","T5_IVcov_RH", "T5_H_RH")
+mdlls <- c("exp-Tair", "pwr-Tair", "exp-T5", "exp-Tair_IVcov", "exp-Tair_H","exp-Tair_RH", "exp-T5_IVcov", "exp-T5_H", "exp-T5_RH","exp-T5_IVcov_RH", "exp-T5_H_RH")
 
 par <- c(par_1, par_1b, par_2, par_1_1, par_1_2, par_1_3, par_2_1, par_2_2, par_2_3, par_2_1_1, par_2_2_1)
 mdlpar <- data.frame(matrix(unlist(par), nrow=length(mdlls), byrow=T))
