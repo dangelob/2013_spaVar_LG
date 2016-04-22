@@ -120,8 +120,8 @@ for (j in mdl_ls){
     # GPPsat calc
     dat <- prd_seldat(df=dfc, id_eq = j) # Select data
     par <- prd_gpar(id_eq = j, dfparam = GPPsatpar) # Select parameter
-    var <- prd_prpdat(dat) # response variable only
-    pGPPsat <- gpGPPsat(df=var, p=par) # prep data and calc pred
+    colnames(dat) <- prd_prpdat(dat, resp_var = F)
+    pGPPsat <- gpGPPsat(df=dat, p=par) # prep data and calc pred
     # GPP calc
     par_i <- prd_gpar(id_eq = j, dfparam = GPPpar) # Select parameter
     pGPP = (par_i*dfc$PAR*pGPPsat/(pGPPsat+dfc$PAR*par_i))
