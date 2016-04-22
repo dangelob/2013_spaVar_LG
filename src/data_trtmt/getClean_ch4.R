@@ -3,13 +3,18 @@
 # Remove measurement point that are not used in the "spatial variability experiment
 # Setup -------------------------------------------------------------------
 rm(list=ls(all=TRUE)) # Clean start
+# Homemade
 library(laguettevarspa)
+# CRAN
 library(dplyr)
 library(tidyr)
+library(rprojroot)
 
-
+## Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
 # Folder to save the treatements ------------------------------------------
-outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+outpath <- file.path(root, "data", "processed")
 
 #  Notation correspondance ------------------------------------------------
 lookup <- c("1" = "p01", "2" = "p02", "3" = "p03", "4" = "p04", "5" = "p05", "6" = "p06", "5'"="A", "5\""="B", "ETREPEE"="C")

@@ -7,12 +7,19 @@
 # This script output 1 files :
 # - cdIVcov.csv 
 
-
+rm(list=ls(all=TRUE)) # Clean start
+# Homemade
 library(carbiodiv)
+# CRAN
 library(tidyr)
 library(dplyr)
+library(rprojroot)
 
-outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+## Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
+
+outpath <- file.path(root, "data", "processed")
 
 # setup output df ---------------------------------------------------------
 # Génération d'un tableau vide pour la végétation des campagnes "variabilité spatiale"
@@ -27,5 +34,5 @@ rec <- cdVegetation %>%
   select(campaign, treatment, localisation, replicate, A, H, M)%>%
   mutate(IVcov = ((A+H+M)/300))
 
-filepath <- paste0(outpath, "/cdIVcov.csv")
-write.csv(rec, filepath, quote=F, row.names=F)
+# filepath <- paste0(outpath, "/cdIVcov.csv")
+write.csv(rec, file.path(outpath, "cdIVcov.csv"), quote=F, row.names=F)

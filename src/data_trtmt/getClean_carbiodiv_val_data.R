@@ -7,14 +7,20 @@
 
 # Setup -------------------------------------------------------------------
 rm(list=ls(all=TRUE)) # Clean start
+# Homemade
 library(carbiodiv)
 library(snoweather)
+# CRAN
 library(dplyr)
 library(tidyr)
+library(rprojroot)
+
+## Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
 
 # Folder to save the treatements ------------------------------------------
-outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
-
+outpath <- file.path(root, "data", "processed")
 
 # Calculations ------------------------------------------------------------
 # Données flux
@@ -39,7 +45,7 @@ dfpar <- cdNetFlux %>%
   summarise(PAR = mean(PAR, na.rm=T))
 
 # Données végétation (a mettre dans pkg carbiodiv)
-dfveg <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cdIVcov.csv")%>%
+dfveg <- read.csv(file.path(outpath, "cdIVcov.csv"))%>%
   filter(campaign > 1)%>%
   filter(treatment == "C")%>%
   mutate(replicate=as.factor(replicate))%>%

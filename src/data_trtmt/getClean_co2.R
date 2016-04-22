@@ -6,15 +6,19 @@
 # TO DO : profiles models
 
 # Setup -------------------------------------------------------------------
-rm(list=ls(all=TRUE))
+rm(list=ls(all=TRUE)) # Clean start
+# Homemade 
 library(laguettevarspa)
-# library(bdphdtoolbox)
+# CRAN
 library(dplyr)
 library(tidyr)
+library(rprojroot)
 
-# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/functions/ld_fn_model.R")
+## Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
 
-outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+outpath <- file.path(root, "data", "processed")
 
 # loading and formating data ----------------------------------------------
 # Retrieve ER data
@@ -49,6 +53,3 @@ dflux <- bind_rows(dRe, dNEE, dGPP)
 
 # Save treatement in file -------------------------------------------------
 write.csv(dflux, file.path(outpath, "cl_CO2.csv"), quote=F, row.names=F)
-
-# filepath_mdl <- paste0(outpath, "/3F_data.csv")
-# write.csv(dflux, filepath_mdl, quote=F, row.names=F)

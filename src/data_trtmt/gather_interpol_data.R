@@ -12,8 +12,12 @@ library(snoweather)
 ## CRAN package
 library(dplyr)
 library(tidyr)
+library(rprojroot)
+## Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
 ## Folder to save the treatements
-outpath <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
+outpath <- file.path(root, "data", "processed")
 
 # Retrieve data -----------------------------------------------------------
 # Interpolated temperature data
