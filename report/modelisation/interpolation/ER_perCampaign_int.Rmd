@@ -114,7 +114,7 @@ prediction <- data.frame()
 for (j in mdl_ls){
     dat <- prd_seldat(df=dfc, id_eq = j) # Select data
     par <- prd_gpar(id_eq = j, dfparam = ERpar) # Select parameter
-    colnames(dat) <- prd_prpdat(dat, resp_var = F)
+    colnames(dat) <- prd_prpdat(dat, resp_var = F) # change col names to Y X1...
     pER <- gpER(df=dat, p=par, id_eq = j) # prep data and calc pred
     tpER <- data.frame(mdl=j, timestamp=dfc$timestamp, pER=pER)
     prediction <- rbind(prediction,tpER)
