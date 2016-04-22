@@ -44,7 +44,7 @@ dfctrl <- svCtrlFact %>%
   select(ID_camp, placette, WTL, RH_m, NPOC, PAR_Deb, PAR_Fin)%>%
   gather(type, val, 6:7)%>% # PAR mean calculation
   group_by(ID_camp, placette)%>%
-  summarise(WTL=mean(WTL, na.rm=T), PAR=mean(val, na.rm=T), RH_m=mean(RH_m, na.rm=T), NPOC=mean(NPOC, na.rm=T))%>%
+  summarise(WTL=mean(WTL, na.rm=T), PAR=mean(val, na.rm=T), RH=mean(RH_m, na.rm=T), NPOC=mean(NPOC, na.rm=T))%>%
   ungroup()%>%
   mutate(placette = as.character(placette))
 
@@ -117,7 +117,7 @@ dfm <- df %>%
     A=mean(A, na.rm=T),
     H=mean(H, na.rm=T),
     M=mean(M, na.rm=T),
-    RH_m=mean(RH_m, na.rm=T),
+    RH=mean(RH, na.rm=T),
     NPOC=mean(NPOC, na.rm=T),
     WTL=mean(WTL, na.rm=T)
   )
