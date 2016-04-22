@@ -150,7 +150,6 @@ as.data.frame(output_yr)
 # Select model
 dat <- filter(prediction, mdl == "exp-Tair")#%>%
 # Plot interpolation
-rm(p)
 p <- plt_interp(dat)+
   annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-1", size=5)
 p
@@ -164,7 +163,6 @@ ggsave("ER_BdCitp_Ta.pdf", plot=p, path=savpth, width=7, height=3, cairo_pdf)
 # Select model
 dat <- filter(prediction, mdl == "exp-Tair_IVcov")#%>%
 # Plot interpolation
-rm(p)
 p <- plt_interp(dat)+
   annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-2", size=5)
 p
@@ -217,7 +215,6 @@ ggsave("ER_BdCitp_T5IVcov.pdf", plot=p, path=savpth, width=7, height=3, cairo_pd
 # Select model
 dat <- filter(prediction, mdl == "exp-T5_H")#%>%
 # Plot interpolation
-rm(p)
 p <- plt_interp(dat)#+
   # annotate("text", x=as.POSIXct("2015-01-01"), y=18, label="RE-3", size=5)
 p
