@@ -22,7 +22,7 @@ output:
 This files describe the calibration of the ER fluxes. 2 files are generated:
 
 * ER_mdlpar.csv (contains models parameters)
-* ER_pred.csv (contains models predictions)
+* ER_pred_cal.csv (contains models predictions)
 
 # Setup
 
@@ -370,5 +370,5 @@ export <- mdlpar %>%
   select(mdl, a, b, c)
 
 write.csv(export, file.path(outpath, "ER_mdl_par.csv"), quote=F, row.names=F)
-write.csv(prediction, file.path(outpath, "ER_pred.csv"), quote=F, row.names=F)
+write.csv(prediction, file.path(outpath, "ER_pred_cal.csv"), quote=F, row.names=F)
 ```
