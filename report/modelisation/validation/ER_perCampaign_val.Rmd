@@ -86,8 +86,8 @@ predER <- data.frame()
 for (j in ER_par){
     dat <- prd_seldat(df=df, flux = "ER", id_eq = j) # Select data
     par <- prd_gpar(id_eq = j, dfparam = ERpar) # Select parameter
-    var <- prd_prpdat(dat[,2:NCOL(dat), drop=F]) # response variable only
-    pER <- gpER(df=var, p=par) # prep data and calc pred
+    colnames(dat) <- prd_prpdat(dat, resp_var = T)
+    pER <- gpER(df=dat, p=par, id_eq = j) # prep data and calc pred
     tpER <- data.frame(ER=df$ER, mdl=j, loc=df$localisation, pER=pER)
     predER <- rbind(predER,tpER)
 }
@@ -150,8 +150,6 @@ plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 datER <- filter(predER, mdl == "exp-T5_IVcov")
 plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 ```
-
-
 
 # Figures
 
