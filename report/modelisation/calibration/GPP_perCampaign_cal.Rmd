@@ -21,9 +21,10 @@ output:
 # Objectives
 This files describe the calibration of the GPP fluxes. This calibration is made in 2 steps, first the calibration using only flux data with light saturation (GPPsat). Then the ponderation with the light (GPP)
 
-One file is generated:
+2 files are generated:
 
-* GPPsat_GPP_mdlpar.csv (contains models parameters for both GPPsat and GPP)
+* GPPsatGPP_mdl_par.csv (contains models parameters for both GPPsat and GPP)
+* GPPsatGPP_pred_cal.csv
 
 # Setup
 
@@ -509,7 +510,9 @@ GPPpred$mdl <- as.character(GPPpred$mdl)
 allpar <- full_join(GPPsatpar, GPPpar[,1:2])
 
 # Export paramètre mdl GPP
-write.csv(allpar, file.path(outpth, "GPPsat_GPP_mdlpar.csv"), quote=F, row.names=F)
+write.csv(allpar, file.path(outpth, "GPPsatGPP_mdl_par.csv"), quote=F, row.names=F)
+# Save GPP prediction
+write.csv(GPPpred, file.path(outpth, "GPPsatGPP_pred_cal.csv"), quote=F, row.names=F)
 ```
 
 ## Model output
