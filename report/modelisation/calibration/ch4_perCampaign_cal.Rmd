@@ -59,13 +59,16 @@ source(file.path(root, "src", "report", "custom_colors.R"))
 
 ```{r ld_fn}
 # model calculations for exponential equation
-calc_mdl_exp <- function(df, nb_var){ # identique ER... sauf start
+calc_mdl_exp <- function(df, nb_var, strt){ # identique ER... sauf start
     if(nb_var == 1){
-      m <- nls(Y ~ a * exp(b*X1), data=df, start=list(a=0.1, b=0.01), na.action = na.exclude)
+      if(missing(strt)){strt <- list(a=0.1, b=0.01)}
+      m <- nls(Y ~ a * exp(b*X1), data=df, start=strt, na.action = na.exclude)
     }else if (nb_var == 2){
-      m <- nls(Y ~ (a*X2 + c) * exp(b*X1), data=df, start=list(a=0.3, b=0.1, c=1), na.action = na.exclude)
+      if(missing(strt)){strt <- list(a=0.3, b=0.1, c=1)}
+      m <- nls(Y ~ (a*X2 + c) * exp(b*X1), data=df, start=strt, na.action = na.exclude)
     }else if (nb_var == 3){
-      m <- nls(Y ~ (a*X2 + c*X3) * exp(b*X1), data=df, start=list(a=0.3, b=0.1, c=1), na.action = na.exclude)
+      if(missing(strt)){strt <- list(a=0.3, b=0.1, c=1)}
+      m <- nls(Y ~ (a*X2 + c*X3) * exp(b*X1), data=df, start=strt, na.action = na.exclude)
     }else if (nb_var > 3){
       cat("variable number > 3, not implemented yet")
     }else{
@@ -75,9 +78,10 @@ calc_mdl_exp <- function(df, nb_var){ # identique ER... sauf start
 }
 
 # model calculations for linear equation
-calc_mdl_lin <- function(df, nb_var){
+calc_mdl_lin <- function(df, nb_var, strt){
     if(nb_var == 1){
-    m <- nls(Y ~ a + b*X1, data=df, start=list(a=0.1, b=0.01), na.action = na.exclude)
+    if(missing(strt)){strt <- list(a=0.1, b=0.01)} # What if NA or NULL ?[TODO]
+    m <- nls(Y ~ a + b*X1, data=df, start=strt, na.action = na.exclude)
     }else if (nb_var == 2){
       cat("not done yet")
     }else if (nb_var > 2){
@@ -89,18 +93,18 @@ calc_mdl_lin <- function(df, nb_var){
 }
 
 # models calculation redirection depending on the equation type (lin, exp...)
-calc_mdl <- function(df, id_eq){
+calc_mdl <- function(df, id_eq, strt){
   # id the model
   eq_type <- prd_idfy(id_eq)[1]
   nb_var <- as.numeric(prd_idfy(id_eq)[2])
   vars <- prd_idfy(id_eq)[-c(1,2)]
   # find equation, calculate mdl
   if(eq_type == "exp"){
-    m <- calc_mdl_exp(df, nb_var)
+    m <- calc_mdl_exp(df, nb_var, strt)
   }else if(eq_type == "lin"){
-    m <- calc_mdl_lin(df, nb_var)
+    m <- calc_mdl_lin(df, nb_var, strt)
   }else if(eq_type == "pwr"){
-    m <- calc_mdl_pwr(df, nb_var)
+    m <- calc_mdl_pwr(df, nb_var, strt)
   }else{
     cat("Unknown equation type")
   }
@@ -166,6 +170,7 @@ for(i in mdl_ls){
   dft <- na.omit(prd_seldat(df=dfm, flux="CH4", id_eq = i))
   colnames(dft) <- prd_prpdat(dft, T)
   # equation selection
+  mdl <- calc_mdl(dft, id_eq=i)
   mdl <- calc_mdl(dft, id_eq=i)
   par <- mdl_param(dft, mdl)
   par$mdl <- i # add id_eq to df
