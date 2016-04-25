@@ -156,7 +156,7 @@ mdl_param <- function(df, mdl){
 }
 ```
 
-## Load and transform data
+## Load data
 
 ```{r ld_data}
 # Load treated data (generated with getClean_fluxesFC)
