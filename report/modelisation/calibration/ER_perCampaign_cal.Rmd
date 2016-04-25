@@ -220,7 +220,6 @@ for (j in ER_par){
     dat <- prd_seldat(df=dfm, flux = "ER", id_eq = j) # Select data
     par <- prd_gpar(id_eq = j, dfparam = mdlparls) # Select parameter
     colnames(dat) <- prd_prpdat(dat, resp_var = T)
-    # var <- prd_prpdat(dat[,2:NCOL(dat), drop=F]) # response variable only
     pER <- gpER(df=dat, p=par, id_eq=j) # prep data and calc pred
     tpER <- data.frame(ER=dfm$ER, mdl=j, pER=pER)
     prediction <- rbind(prediction,tpER)
