@@ -116,11 +116,12 @@ p6 <- ggplot(ch4val, aes(x=CH4, y=pCH4))+
   p
 
 
-grid.arrange(p1, p4, p2, p5, p3, p6, ncol=2)
+# grid.arrange(p1, p4, p2, p5, p3, p6, ncol=2)
 g1 <- arrangeGrob(p1,p2,p3, ncol=1, top="            Calibration")
 g2 <- arrangeGrob(p4,p5,p6, ncol=1, top="     Evaluation")
 
 gt <- arrangeGrob(g1,g2, ncol=2)
 # grobframe <- arrangeGrob(p1, p4, p2, p5, p3, p6, ncol=2, top="Calibration    Validation")
+gt
 ggsave("fig_art_mdl.pdf", plot=gt, path = savpath, width = 6, height = 9)
 
