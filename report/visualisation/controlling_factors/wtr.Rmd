@@ -1,0 +1,120 @@
+---
+title: "Weather"
+author: "Benoît D'ANGELO"
+date: "23/02/2015"
+output:
+  html_document:
+    code_folding: hide
+    fig_height: 5
+    includes:
+      in_header: ../../in_header.html
+    theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+---
+### <a href="../vis_toc.html"> Visualisation </a>
+
+***
+
+# Setup
+
+## Load packages and set paths
+
+```{r, echo=FALSE, message=FALSE}
+# File name : /2013_spavar_LG/report/visualisation/controlling_factors/wtl.Rmd
+rm(list=ls(all=TRUE)) # Clean start
+
+# Homemade 
+library(laguettevarspa)
+# CRAN
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+library(rprojroot)  # allow easier relative path
+
+# Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
+
+# Folder to save graphes
+savpth <- file.path(root, "graphs", "visualisation")
+
+# Load custom color set
+source(file.path(root, "src", "report", "custom_colors.R"))
+source(file.path(root, "src", "report", "custom_themes.R"))
+```
+
+```{r load_dat, echo=FALSE}
+# Chronicles data
+dfc <- read.csv(file.path(root, "data", "other", "station_meteo_2011-2015.csv"), sep=";")%>%
+  separate(TIMESTAMP, c("date", "hours"), sep=" ", remove = F)%>%
+  separate(date, c("day", "month", "year"), sep="/", remove = T)%>%
+  mutate(year = as.factor(year))%>%
+  mutate(TIMESTAMP =as.POSIXct(TIMESTAMP, format="%d/%m/%Y %H:%M"))%>%
+  arrange(TIMESTAMP)
+
+
+dfc_day <- dfc %>%
+  group_by(year, month, day)%>%
+  summarise(Rain_mm_Tot = round(sum(Rain_mm_Tot, na.rm=T),0), AirTC = mean(AirTC, na.rm=T), TIMESTAMP=mean(TIMESTAMP, na.rm=T))
+
+dfc_month <- dfc %>%
+  group_by(year, month)%>%
+  summarise(Rain_mm_Tot = round(sum(Rain_mm_Tot, na.rm=T),0), AirTC = mean(AirTC, na.rm=T), TIMESTAMP=mean(TIMESTAMP, na.rm=T))
+```
+
+# Air temperature {.tabset}
+
+## Raw data 
+
+```{r}
+ggplot(dfc, aes(x=TIMESTAMP, y=AirTC))+
+  geom_line()+
+  theme_interp
+```
+
+## Daily averaged
+
+```{r}
+ggplot(dfc_day, aes(x=TIMESTAMP, y=AirTC))+
+  geom_line()+
+  theme_interp
+```
+
+## Monthly averaged
+
+```{r}
+ggplot(dfc_month, aes(x=TIMESTAMP, y=AirTC))+
+  geom_line()+
+  geom_point()+
+  theme_interp
+```
+
+# Rainfall {.tabset}
+
+## Raw data 
+
+```{r}
+ggplot(dfc, aes(x=TIMESTAMP, y=Rain_mm_Tot))+
+  geom_line()+
+  theme_interp
+```
+
+## Daily sum
+
+```{r}
+ggplot(dfc_day, aes(x=TIMESTAMP, y=Rain_mm_Tot))+
+  geom_line()+
+  theme_interp
+```
+
+## Monthly sum
+
+```{r}
+ggplot(dfc_month, aes(x=TIMESTAMP, y=Rain_mm_Tot))+
+  geom_point()+
+  geom_line()+
+  theme_interp
+```
