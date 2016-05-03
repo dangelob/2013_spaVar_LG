@@ -41,13 +41,9 @@ root <- r$find_file()
 # Folder to save graphes
 savpth <- file.path(root, "graphs", "visualisation")
 
-# savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
-
 # Load custom color set
 source(file.path(root, "src", "report", "custom_colors.R"))
 source(file.path(root, "src", "report", "custom_themes.R"))
-# source("../../../src/report/custom_colors.R")
-# source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
 ```
 
 # WTL chronicles {.tabset}
