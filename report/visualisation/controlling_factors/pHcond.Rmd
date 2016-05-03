@@ -47,8 +47,16 @@ dfm <- df %>%
             NPOC_sd=sd(NPOC, na.rm=T),
             NPOC=mean(NPOC, na.rm=T)
             )
-
 ```
+
+## pH average
+
+```{r}
+df %>%
+  summarise(pH_sd=sd(pH, na.rm=T),
+            pH=mean(pH, na.rm=T))
+```
+
 
 ## Mean pH evolution
 
