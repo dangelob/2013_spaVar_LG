@@ -121,7 +121,7 @@ moy <- d %>%
   summarise(wtl_sd = round(sd(val, na.rm=T),1),
               wtl = round(mean(val, na.rm=T),1))
 
-labt <- as.character(round(moy$wtl[1:4],1))
+labt <- as.character(format(moy$wtl[1:4],digits=2))
 labt <- c(labt, "annual means")
 xpos <- c("2011-06-01", "2012-06-01", "2013-06-01", "2014-06-01", "2015-01-01")
 xpos <- as.POSIXct(xpos)
