@@ -34,6 +34,14 @@ df3F <- cdNetFlux %>% # package carbiodiv
   group_by(campaign,  localisation)%>%
   summarise(NEE = mean(NEE, na.rm=T), ER = mean(ER, na.rm=T), GPP = mean(GPP, na.rm=T))
 
+# Données CH4
+dfch4 <- cdCH4 %>%
+  filter(treatment == "C")%>%
+  select(campaign, treatment, localisation, replicate, ch4)%>%
+  group_by(campaign,  localisation)%>%
+  # group_by(campaign, localisation, replicate)%>%
+  summarise(ch4 = (mean(ch4, na.rm=T)))
+
 # Donnée PAR 
 dfpar <- cdNetFlux %>%
   select(campaign, cycle_no, treatment, localisation, replicate, PAR_deb, PAR_fin)%>%
@@ -73,6 +81,7 @@ dfwr <- left_join(dfwr2, dfwr1)%>% # Fusion des 2
   summarise(Tair = mean(Tair, na.rm=T), T5 = mean(T5, na.rm=T))
 
 df <- df3F %>%
+  left_join(., dfch4)%>%
   left_join(., dfpar)%>%
   left_join(., dfveg, by=c("campaign", "localisation"))%>%
   left_join(., dfwr)%>%
