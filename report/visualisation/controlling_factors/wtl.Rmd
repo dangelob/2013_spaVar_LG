@@ -4,37 +4,63 @@ author: "Benoît D'ANGELO"
 date: "23/02/2015"
 output:
   html_document:
+    code_folding: hide
+    fig_height: 5
     includes:
       in_header: ../../in_header.html
     theme: flatly
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
 ---
 ### <a href="../vis_toc.html"> Visualisation </a>
 
 ***
+
+# Setup
+
+## Load packages and set paths
+
 ```{r, echo=FALSE, message=FALSE}
-rm(list=ls())
+# File name : /2013_spavar_LG/report/visualisation/controlling_factors/wtl.Rmd
+rm(list=ls(all=TRUE)) # Clean start
+
+# Homemade 
 library(laguettevarspa)
+# CRAN
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(scales)
+library(rprojroot)  # allow easier relative path
 
-savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
+# Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
+
+# Folder to save graphes
+savpth <- file.path(root, "graphs", "visualisation")
+
+# savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/visualisation"
 
 # Load custom color set
-source("../../../src/report/custom_colors.R")
+source(file.path(root, "src", "report", "custom_colors.R"))
+source(file.path(root, "src", "report", "custom_themes.R"))
+# source("../../../src/report/custom_colors.R")
 # source("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/src/report/custom_colors.R")
 ```
 
+# WTL chronicles {.tabset}
 
 ```{r load_dat, echo=FALSE}
-# données par placette
+# Spatial variability data
+## data per measurement plot
 df <- svCtrlFact%>%
   select(ID_camp, placette, date, PiezoNap, PiezoVeg, WTL)%>%
   mutate(WTL = -WTL)%>%
   separate(date, c("year","month", "day"),remove = F)
 
-# moyenne de l'ensemble des placettes
+## data averaged by measurement campaign
 dfm <- df %>%
   group_by(ID_camp)%>%
   summarise(date=min(date),
@@ -43,6 +69,81 @@ dfm <- df %>%
             WTL=mean(WTL, na.rm=T)
             )
 
+# Chronicles data
+dfc <- read.csv(file.path(root, "data", "other", "niveaux_piezo_cm.csv"))%>%
+  mutate(timestamp=as.POSIXct(as.character(abs), format="%Y-%m-%d %H:%M:%S"))%>%
+  select(timestamp, NIV_WO, NIV_WC, NIV_DO, NIV_DC, NIV_DC_o, NIV_WC_o)%>%
+  filter(timestamp >= as.POSIXct("2011-01-28 00:00:00"))%>%
+  filter(timestamp <= as.POSIXct("2015-04-21 00:00:00"))
+
+## Wide format
+dfcw <- dfc %>%
+  mutate(yr = strftime(timestamp, "%Y"), # deb moy jour
+         mn = strftime(timestamp, "%m"),
+         dy = strftime(timestamp, "%d"))%>%
+  group_by(yr, mn, dy)%>%
+  summarise(timestamp=median(timestamp),
+            NIV_WO=mean(NIV_WO, na.rm=T),
+            NIV_WC=mean(NIV_WC, na.rm=T),
+            NIV_DO=mean(NIV_DO, na.rm=T),
+            NIV_DC=mean(NIV_DC, na.rm=T)
+            )%>%
+  ungroup()%>%
+  select(-yr, -mn, -dy)%>% ## Fin moy jour
+  # select(-NIV_DC_o, -NIV_WC_o)%>%
+  mutate(avg = rowMeans(select(., starts_with("NIV")), na.rm = TRUE))%>%
+  gather("type", "val", 2:6)%>%
+  do(na.omit(.))
+```
+
+## Raw chronicles
+
+```{r}
+d <- filter(dfcw, type != "avg")
+
+ggplot(d, aes(x=timestamp, y=val))+
+  geom_line()+
+  facet_wrap(~type)
+
+```
+
+## WTL chronicles (mean of 4 auto-piezo)
+
+```{r, fig.height=3}
+d <- filter(dfcw, type == "avg")
+
+moy <- d %>%
+  separate(timestamp, c("date", "hours"), sep=" ", remove = F)%>%
+  separate(timestamp, c("year", "month", "day"), sep="-", remove = T)%>%
+  mutate(year = as.factor(year))%>%
+  filter(year %in% c(2011, 2012, 2013, 2014))%>%
+  group_by(year)%>%
+  summarise(wtl_sd = round(sd(val, na.rm=T),1),
+              wtl = round(mean(val, na.rm=T),1))
+
+labt <- as.character(round(moy$wtl[1:4],1))
+labt <- c(labt, "annual means")
+xpos <- c("2011-06-01", "2012-06-01", "2013-06-01", "2014-06-01", "2015-01-01")
+xpos <- as.POSIXct(xpos)
+dlab <- data.frame(xpos=xpos, labt=labt)
+
+
+
+ggplot()+
+  geom_line(aes(x=timestamp, y=val), data=d, color=lgris)+
+  geom_point(aes(x=as.POSIXct(date), y=WTL), data=dfm, color=dgris, size=2)+
+  geom_linerange(aes(x=as.POSIXct(date), ymin=WTL-WTL_sd, ymax=WTL+WTL_sd), data=dfm, color=dgris)+
+  ylab("water table level (cm)")+
+  geom_text(aes(x=xpos, y=5, label=labt), data=dlab)+
+  theme_interp
+ggsave("WTL_WTLc.pdf", path=savpth, width=7, height=3)
+
+```
+
+# Spatial variability measurements
+
+
+```{r}
 # Moyenne annuelle niveau
 dfma <- df %>%
   group_by(year)%>%
