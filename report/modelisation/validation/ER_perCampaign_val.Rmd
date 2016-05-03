@@ -15,6 +15,14 @@ output:
 
 ***
 
+# Objectives
+This files describe the validation of the GPP fluxes. 1 files are generated:
+
+* ER_pred_val.csv (contains models predictions)
+
+# Setup
+
+## Load packages and set paths
 ```{r setup, echo=FALSE, message=FALSE}
 rm(list=ls(all=TRUE))
 
@@ -28,17 +36,19 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(scales)
+library(rprojroot)
+## Find project root
+r <- rprojroot::is_rstudio_project
+root <- r$find_file()
+## Folder to save the treatements
+outpath <- file.path(root, "data", "processed")
 
-savpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance"
-outpth <- "/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed"
-
-
-knitr::opts_chunk$set(fig.width=12,fig.height=8,echo=FALSE, warning=FALSE,message=FALSE)
+knitr::opts_chunk$set(fig.width=12,fig.height=8, warning=FALSE,message=FALSE)
 options(width = 200)
 ```
 
 ```{r load_mdl_par}
-ERpar <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/ER_mdlpar.csv")
+ERpar <- read.csv(file.path(outpath, "ER_mdl_par.csv"))
 ```
 
 
@@ -76,7 +86,7 @@ mdl_indic <- function(Y, pY, mdl){
 ```{r load_data}
 # Load treated data (generated with getClean_carbiodiv_val_data)
 # Campaign average
-df <- read.csv("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/data/processed/cl_carbiodiv_val.csv")
+df <- read.csv(file.path(outpath,"cl_carbiodiv_val.csv"))
 ```
 
 ```{r, compil_data}
@@ -151,23 +161,7 @@ datER <- filter(predER, mdl == "exp-T5_IVcov")
 plt_mesmod(datER$ER, datER$pER, x_lim = c(0,10), y_lim = c(0,10))
 ```
 
-# Figures
-
-```{r, fig.height=8, result="hide", eval=F}
-# RE
-dat <- filter(predER, mdl == "Tair")
-
-cairo_pdf(file.path("/home/dangelo/Documents/4.ScienceStuff/2.Projects/2013_spaVar_LG/graphs/carbonbalance/ecosyst/validation", "ER_Tair_val.pdf"), width=4, height=4)
-par(mar=c(4,4,.5,.5))
-plot(ER~pER,
-     data=dat,
-     xlim=c(0,5), ylim=c(0,5),
-     xlab="",
-     ylab="")
-title(xlab=expression(paste("RE modélisée (", mu, mol,m^-2,s^-1,")", sep="")), line=2.5)
-title(ylab=expression(paste("RE mesurée (", mu, mol,m^-2,s^-1,")", sep="")), line=2)
-abline(a=0, b=1, col="black", lty=2)
-text(4.5,4.9, "1:1", srt=45)
-dev.off()
+# Save
+```{r}
+write.csv(predER, file.path(outpath, "ER_pred_val.csv"), quote=F, row.names=F)
 ```
-

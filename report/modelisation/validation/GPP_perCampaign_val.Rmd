@@ -26,7 +26,7 @@ This files describe the validation of the GPP fluxes. 1 files are generated:
 
 ## Load packages and set paths
 
-```{r setup, echo=FALSE, message=FALSE}
+```{r setup, message=FALSE}
 # filname: /2013_spavar_LG/report/modelisation/validation/GPP_perCampaign_val.Rmd
 rm(list=ls(all=TRUE)) # Clean start
 # Homemade
